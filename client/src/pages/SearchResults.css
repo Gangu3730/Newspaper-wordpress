@@ -1,0 +1,1 @@
+.search-results .search-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}.articles-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}.empty-message,.error-message{padding:24px;background:#fff7f0;border:1px solid #ffd6cc;border-radius:6px}

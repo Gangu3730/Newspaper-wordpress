@@ -11,6 +11,42 @@ import PollWidget from '../components/widgets/PollWidget';
 import NewsSnapWidget from '../components/widgets/NewsSnapWidget';
 import CityNewsFilter from '../components/widgets/CityNewsFilter';
 import './Home.css';
+
+const politicalEyeShowVideos = [
+  {
+    id: 'pev1',
+    title: 'क्या EVM सच में हैक हो सकती है? पूरा राजनीतिक विश्लेषण - Political Eye',
+    youtube_id: '8v9GqEszZ-E',
+    thumbnail: 'https://images.unsplash.com/photo-1541872703-74c5e44368f9?w=800&q=80',
+    views: '480K views',
+    duration: '10:45'
+  },
+  {
+    id: 'pev2',
+    title: 'कांग्रेस की नई रणनीति: क्या Rahul Gandhi बनेंगे 2029 के चेहरे? विशेष रिपोर्ट',
+    youtube_id: 't-e5K0wQ-tE',
+    thumbnail: 'https://images.unsplash.com/photo-1529107386315-e1a2ed48a620?w=800&q=80',
+    views: '1.2M views',
+    duration: '14:20'
+  },
+  {
+    id: 'pev3',
+    title: 'बजट 2026: क्या आपका टैक्स घटेगा या बढ़ेगा? सरल शब्दों में समझें',
+    youtube_id: 'mU_G2_K7yQY',
+    thumbnail: 'https://images.unsplash.com/photo-1590283603385-17ffb3a7f29f?w=800&q=80',
+    views: '850K views',
+    duration: '08:35'
+  },
+  {
+    id: 'pev4',
+    title: 'बिहार और झारखंड की राजनीति में बड़ा भूचाल! जानिए अंदर की खबर',
+    youtube_id: 'xJ8D_9o2L9E',
+    thumbnail: 'https://images.unsplash.com/photo-1450133064473-71024230f91b?w=800&q=80',
+    views: '3.4M views',
+    duration: '11:15'
+  }
+];
+
 const Home = () => {
   const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(null);
@@ -47,14 +83,26 @@ const Home = () => {
 
   const [shortsData, setShortsData] = useState([]);
   const [newsSnapData, setNewsSnapData] = useState([]);
+  const [ads, setAds] = useState([]);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [activeVideoId, setActiveVideoId] = useState(null);
 
   useEffect(() => {
     wpService.getCategories()
       .then(data => setCategories(data))
       .catch(err => console.error('Error fetching categories:', err));
+      
+    // Fetch ads
+    const cachedAds = sessionStorage.getItem('news_ads');
+    if (cachedAds) setAds(JSON.parse(cachedAds));
+    wpService.getAdvertisements()
+      .then(data => {
+        setAds(data);
+        sessionStorage.setItem('news_ads', JSON.stringify(data));
+      })
+      .catch(err => console.error('Error fetching ads:', err));
   }, []);
 
   useEffect(() => {
@@ -163,6 +211,17 @@ const Home = () => {
       .finally(() => setLoading(false));
   }, [selectedCategory]);
 
+  const displayVideos = videoNews && videoNews.length > 0 
+    ? videoNews.map(item => ({
+        id: item.id,
+        title: item.title,
+        youtube_id: item.acf?.youtube_id || item.acf?.youtube_video_id || '8v9GqEszZ-E',
+        thumbnail: item.featured_image || 'https://images.unsplash.com/photo-1541872703-74c5e44368f9?w=800&q=80',
+        views: item.views ? item.views.toLocaleString() + ' views' : '350K views',
+        duration: item.acf?.duration || '12:00'
+      }))
+    : politicalEyeShowVideos;
+
   return (
     <div className="home-page">
       {breakingNews.length > 0 && <BreakingTicker news={breakingNews} />}
@@ -188,13 +247,20 @@ const Home = () => {
           </div>
         ) : (
           <div className="homepage-sections">
-            
-            {/* Top Ad Banner */}
-            <div className="middle-ad" style={{ marginTop: 0 }}>
-              <a href="#" target="_blank" rel="noopener noreferrer">
-                <img src="https://newspaper.keshav-enterprises.co.in/wp-content/uploads/2026/05/ChatGPT-Image-May-21-2026-03_40_37-PM-e1779358275697.png" alt="Advertisement" className="middle-ad__img" style={{ width: '100%', maxWidth: '970px', borderRadius: '8px', boxShadow: 'var(--shadow-sm)' }} />
-              </a>
-            </div>
+            {/* Hero Ad Banner */}
+            {(() => {
+              const heroAd = ads.find(ad => {
+                const placements = Array.isArray(ad.placement) ? ad.placement : [ad.placement];
+                return placements.includes("Hero Banner (Home Page Middle)");
+              });
+              return heroAd && (heroAd.image || heroAd.image_url) && (
+                <div className="middle-ad" style={{ marginTop: 0 }}>
+                  <a href={heroAd.targetUrl || heroAd.target_url || "#"} target="_blank" rel="noopener noreferrer">
+                    <img src={heroAd.image || heroAd.image_url} alt="Advertisement" className="middle-ad__img" style={{ width: '100%', maxWidth: '970px', borderRadius: '8px', boxShadow: 'var(--shadow-sm)' }} />
+                  </a>
+                </div>
+              );
+            })()}
 
             {/* Trending Links Bar */}
             <div className="trending-topics-bar">
@@ -208,7 +274,7 @@ const Home = () => {
             </div>
 
             {/* Shorts Section - Always show, widget will handle fallback if empty */}
-            <ShortsWidget shorts={shortsData} />
+            <ShortsWidget shorts={shortsData} onPlay={setActiveVideoId} />
 
             {/* Main 3-Column Layout */}
             <div className="home-grid-layout">
@@ -286,49 +352,68 @@ const Home = () => {
 
               {/* Right Sidebar */}
               <aside className="home-sidebar-right">
-                <div className="right-ad-block" style={{ marginBottom: '2rem' }}>
-                  <img src="https://images.unsplash.com/photo-1546410531-bea4edad80f1?w=300&q=80" alt="Ad" style={{ width: '100%', borderRadius: '8px' }} />
-                </div>
-                
-                <div className="right-ad-block" style={{ marginBottom: '2rem' }}>
-                  <img src="https://images.unsplash.com/photo-1560179707-f14e90ef3623?w=300&q=80" alt="Hyundai Ad" style={{ width: '100%', borderRadius: '8px' }} />
-                </div>
+                {ads.filter(ad => {
+                  const placements = Array.isArray(ad.placement) ? ad.placement : [ad.placement];
+                  return placements.includes("Right Sidebar (Home & Article Pages)");
+                }).map(ad => (ad.image || ad.image_url) && (
+                  <div key={ad.id} className="right-ad-block" style={{ marginBottom: '2rem' }}>
+                    <a href={ad.targetUrl || ad.target_url || "#"} target="_blank" rel="noopener noreferrer">
+                      <img src={ad.image || ad.image_url} alt={ad.title} style={{ width: '100%', borderRadius: '8px' }} />
+                    </a>
+                  </div>
+                ))}
 
                 <PollWidget />
               </aside>
             </div>
 
-            {/* Video Section */}
-            {videoNews.length > 0 && (
-              <section className="video-section-dark">
-                <div className="container">
-                  <div className="section-header section-header--dark">
-                    <h2 className="section-header__title">Top Videos</h2>
-                    <span className="section-header__dot" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                      <span className="pulse-dot"></span>
-                      <span>लाइव</span>
-                    </span>
-                  </div>
-                  <div className="video-grid">
-                    {videoNews.slice(0, 4).map(article => (
-                      <div key={article.id} className="video-card">
-                        <div className="video-card__thumbnail">
-                          <img src={article.featured_image} alt={article.title} />
-                          <div className="video-card__play-btn">
-                            <svg viewBox="0 0 24 24" width="22" height="22" fill="white">
-                              <path d="M8 5v14l11-7z" />
-                            </svg>
-                          </div>
-                        </div>
-                        <h4 className="video-card__title">
-                          <Link to={`/news/${article.slug}`}>{article.title}</Link>
-                        </h4>
-                      </div>
-                    ))}
-                  </div>
+            {/* Political Eye YouTube Video Show Section */}
+            <section className="video-section-dark">
+              <div className="container">
+                <div className="section-header section-header--dark">
+                  <h2 className="section-header__title" style={{ fontSize: '1.8rem' }}>
+                    Political Eye <span style={{ color: '#f97316' }}>वीडियो शो</span>
+                  </h2>
+                  <a 
+                    href="https://www.youtube.com/@PoliticalEyeIndia/videos" 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="section-header__link-btn"
+                    style={{ color: '#f97316', fontWeight: 'bold', fontSize: '0.95rem', textDecoration: 'none' }}
+                  >
+                    YouTube चैनल पर जाएं &gt;
+                  </a>
                 </div>
-              </section>
-            )}
+                <div className="video-grid">
+                  {displayVideos.slice(0, 4).map(video => (
+                    <div 
+                      key={video.id} 
+                      className="video-card" 
+                      onClick={() => setActiveVideoId(video.youtube_id)}
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <div className="video-card__thumbnail">
+                        <img src={video.thumbnail} alt={video.title} />
+                        <span className="video-card__duration" style={{ position: 'absolute', bottom: '8px', right: '8px', backgroundColor: 'rgba(0,0,0,0.8)', color: '#fff', padding: '2px 6px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold' }}>{video.duration}</span>
+                        <div className="video-card__play-btn">
+                          <svg viewBox="0 0 24 24" width="22" height="22" fill="white">
+                            <path d="M8 5v14l11-7z" />
+                          </svg>
+                        </div>
+                      </div>
+                      <div className="video-card__info" style={{ padding: '12px 0 0 0' }}>
+                        <h4 className="video-card__title" style={{ fontSize: '1rem', color: '#ffffff', lineHeight: '1.4', margin: '0 0 6px 0', fontWeight: '600' }}>
+                          {video.title}
+                        </h4>
+                        <span className="video-card__views" style={{ fontSize: '0.8rem', color: '#a3a3a3' }}>
+                          {video.views}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </section>
 
             <CityNewsFilter />
 
@@ -355,6 +440,96 @@ const Home = () => {
           </div>
         )}
       </div>
+      
+      {/* Premium Video Player Modal Overlay */}
+      {activeVideoId && (
+        <div 
+          className="video-modal-overlay" 
+          onClick={() => setActiveVideoId(null)}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            backgroundColor: 'rgba(0, 0, 0, 0.9)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 99999,
+            padding: '20px',
+            backdropFilter: 'blur(8px)',
+            transition: 'opacity 0.3s ease'
+          }}
+        >
+          <div 
+            className="video-modal-content" 
+            onClick={e => e.stopPropagation()}
+            style={{
+              position: 'relative',
+              width: '100%',
+              maxWidth: '900px',
+              backgroundColor: '#000',
+              borderRadius: '12px',
+              overflow: 'hidden',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
+            }}
+          >
+            <button 
+              className="video-modal-close" 
+              onClick={() => setActiveVideoId(null)}
+              style={{
+                position: 'absolute',
+                top: '12px',
+                right: '16px',
+                backgroundColor: 'rgba(0, 0, 0, 0.6)',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '50%',
+                width: '36px',
+                height: '36px',
+                fontSize: '24px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 10,
+                transition: 'background-color 0.2s ease',
+                outline: 'none'
+              }}
+              onMouseEnter={(e) => e.target.style.backgroundColor = 'rgba(239, 68, 68, 0.8)'}
+              onMouseLeave={(e) => e.target.style.backgroundColor = 'rgba(0, 0, 0, 0.6)'}
+            >
+              &times;
+            </button>
+            <div 
+              className="video-modal-iframe-wrapper"
+              style={{
+                position: 'relative',
+                paddingBottom: '56.25%', /* 16:9 Aspect Ratio */
+                height: 0,
+                overflow: 'hidden'
+              }}
+            >
+              <iframe 
+                src={`https://www.youtube.com/embed/${activeVideoId}?autoplay=1`} 
+                title="YouTube Video Player"
+                frameBorder="0" 
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                allowFullScreen
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: '100%',
+                  border: 'none'
+                }}
+              ></iframe>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -105,7 +105,7 @@ const Category = () => {
                   <div className="skeleton-card"></div>
                 </div>
               ) : (
-                <div className="articles-grid">
+                <div className="category-posts-grid">
                   {latestNews.map(article => (
                     <NewsCard key={article.id} article={article} variant="standard" />
                   ))}
@@ -116,7 +116,7 @@ const Category = () => {
         </div>
       ) : (
         <>
-          <div className="articles-grid">
+          <div className="category-posts-grid">
             {news.map(article => (
               <NewsCard key={article.id} article={article} variant="standard" />
             ))}

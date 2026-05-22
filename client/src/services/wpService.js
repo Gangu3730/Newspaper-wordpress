@@ -280,33 +280,83 @@ const wpService = {
     }
   },
 
-  /**
-   * Fetches Shorts/Videos from the custom post type 'shorts'
-   */
   async getShorts(options = {}) {
     const { perPage = 10 } = options;
+    const politicalEyeShorts = [
+      {
+        id: 'ps1',
+        title: 'क्या BJP 2026 में बंगाल में सरकार बनाएगी? राजनीतिक विश्लेषण',
+        youtube_id: '8v9GqEszZ-E',
+        url: 'https://www.youtube.com/shorts/8v9GqEszZ-E',
+        featured_image: 'https://images.unsplash.com/photo-1541872703-74c5e44368f9?w=500&q=80',
+        views: '240K'
+      },
+      {
+        id: 'ps2',
+        title: 'Rahul Gandhi का नया दांव! कांग्रेस की नई रणनीति का सच',
+        youtube_id: 't-e5K0wQ-tE',
+        url: 'https://www.youtube.com/shorts/t-e5K0wQ-tE',
+        featured_image: 'https://images.unsplash.com/photo-1529107386315-e1a2ed48a620?w=500&q=80',
+        views: '1.2M'
+      },
+      {
+        id: 'ps3',
+        title: 'PM Modi का बड़ा ऐलान: नई सरकारी नीतियां और बजट योजनाएं',
+        youtube_id: 'mU_G2_K7yQY',
+        url: 'https://www.youtube.com/shorts/mU_G2_K7yQY',
+        featured_image: 'https://images.unsplash.com/photo-1593113598332-cd288d649433?w=500&q=80',
+        views: '890K'
+      },
+      {
+        id: 'ps4',
+        title: 'झारखंड चुनाव: कौन बनेगा मुख्यमंत्री? ताजा ओपिनियन पोल',
+        youtube_id: 'xJ8D_9o2L9E',
+        url: 'https://www.youtube.com/shorts/xJ8D_9o2L9E',
+        featured_image: 'https://images.unsplash.com/photo-1450133064473-71024230f91b?w=500&q=80',
+        views: '3.1M'
+      },
+      {
+        id: 'ps5',
+        title: 'बिहार की राजनीति में नया मोड़! क्या नीतीश कुमार बदलेंगे पाला?',
+        youtube_id: 'R7f_o98v6EE',
+        url: 'https://www.youtube.com/shorts/R7f_o98v6EE',
+        featured_image: 'https://images.unsplash.com/photo-1508962914676-134849a727f0?w=500&q=80',
+        views: '1.5M'
+      },
+      {
+        id: 'ps6',
+        title: 'महंगाई और बेरोजगारी पर जनता की राय: तीखे सवाल-जवाब',
+        youtube_id: 'gD_V_d5K7wY',
+        url: 'https://www.youtube.com/shorts/gD_V_d5K7wY',
+        featured_image: 'https://images.unsplash.com/photo-1551836022-d5d88e9218df?w=500&q=80',
+        views: '420K'
+      }
+    ];
+
     try {
       const response = await axios.get(`${WP_API_URL}/wp/v2/shorts`, {
         params: { _embed: true, per_page: perPage, _cb: Date.now() },
-        timeout: 8000
+        timeout: 5000
       });
       
-      if (response.data) {
-        return response.data.map(post => {
+      if (response.data && response.data.length > 0) {
+        const wpShorts = response.data.map(post => {
           const featuredImage = getFeaturedImage(post);
           return {
             id: post.id,
             title: post.title?.rendered || '',
+            youtube_id: post.acf?.youtube_id || post.acf?.youtube_video_id || '',
+            url: post.acf?.youtube_url || `https://www.youtube.com/watch?v=${post.acf?.youtube_id}`,
             featured_image: featuredImage,
-            views: ((post.id * 83) % 4500) + 240 + 'K' // Mock views
+            views: ((post.id * 83) % 4500) + 240 + 'K'
           };
         });
+        return [...wpShorts, ...politicalEyeShorts];
       }
-      return [];
     } catch (error) {
-      console.error('Error fetching Shorts from WordPress:', error.message);
-      return [];
+      console.warn('Fallback to curated Political Eye shorts:', error.message);
     }
+    return politicalEyeShorts;
   },
 
   /**
@@ -374,91 +424,278 @@ const wpService = {
     }
   },
 
-  /**
-   * Fetches advertisements directly from WordPress posts under the 'advertisements' category.
-   * Enables complete client-side ad management straight from the WordPress backend.
-   */
+  async fetchAds() {
+    return fetchAds();
+  },
+
+  async fetchAdsByPlacement(placement) {
+    const list = await fetchAdsByPlacement(placement);
+    return list.length > 0 ? list[0] : null;
+  },
+
   async getAdvertisements() {
-    try {
-      let categoryId = null;
-      try {
-        const catRes = await axios.get(`${WP_API_URL}/wp/v2/categories?slug=advertisements&_cb=${Date.now()}`);
-        if (catRes.data && catRes.data.length > 0) {
-          categoryId = catRes.data[0].id;
-        } else {
-          // Backup slug in case of encoding conversion
-          const catAdsRes = await axios.get(`${WP_API_URL}/wp/v2/categories?slug=cat-ads&_cb=${Date.now()}`);
-          if (catAdsRes.data && catAdsRes.data.length > 0) {
-            categoryId = catAdsRes.data[0].id;
-          }
-        }
-      } catch (e) {
-        console.warn("Failed resolving advertisements category, using general query fallback");
-      }
+    return fetchAds();
+  },
 
-      if (categoryId) {
-        const response = await axios.get(`${WP_API_URL}/wp/v2/posts?categories=${categoryId}&_embed=true&_cb=${Date.now()}&per_page=12`, { timeout: 8000 });
-        if (response.data && response.data.length > 0) {
-          return response.data.map(post => {
-            const featuredImage = getFeaturedImage(post);
-            const targetUrl = stripHtml(post.excerpt?.rendered || post.content?.rendered || 'https://newspaper.keshav-enterprises.co.in/');
-            const cleanUrl = targetUrl.replace(/<[^>]*>/g, '').trim();
-            
-            const terms = post._embedded?.['wp:term']?.[1] || [];
-            let placement = 'left';
-            if (terms.some(t => t.slug === 'right' || t.name === 'right')) {
-              placement = 'right';
-            } else if (terms.some(t => t.slug === 'header' || t.name === 'header')) {
-              placement = 'header';
-            } else if (terms.some(t => t.slug === 'footer' || t.name === 'footer')) {
-              placement = 'footer';
-            } else {
-              placement = post.id % 2 === 0 ? 'left' : 'right';
-            }
-
-            return {
-              id: post.id,
-              title: post.title?.rendered || 'विज्ञापन',
-              image_url: featuredImage,
-              target_url: cleanUrl,
-              placement: placement,
-              is_active: true
-            };
-          });
-        }
-      }
-    } catch (error) {
-      console.warn('Failed loading advertisements from WordPress, using Unsplash defaults:', error.message);
-    }
-
-    // Default premium fallbacks
-    return [
-      {
-        id: 501,
-        title: 'प्रभात खबर सब्सक्रिप्शन महाधमाका',
-        image_url: 'https://images.unsplash.com/photo-1557683316-973673baf926?auto=format&fit=crop&w=300&h=600&q=80',
-        target_url: 'https://newspaper.keshav-enterprises.co.in/',
-        placement: 'left',
-        is_active: true
-      },
-      {
-        id: 502,
-        title: 'Keshav Enterprises डिजिटल सर्विसेज',
-        image_url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=300&h=600&q=80',
-        target_url: 'https://keshav-enterprises.co.in/',
-        placement: 'right',
-        is_active: true
-      },
-      {
-        id: 503,
-        title: 'हेडर बैनर विज्ञापन',
-        image_url: 'https://images.unsplash.com/photo-1557683316-973673baf926?auto=format&fit=crop&w=728&h=90&q=80',
-        target_url: 'https://newspaper.keshav-enterprises.co.in/',
-        placement: 'header',
-        is_active: true
-      }
-    ];
+  async fetchMainMenu() {
+    return fetchMainMenu();
   }
 };
+
+/**
+ * Clean helper function to fetch all ads from WordPress Ads CPT
+ */
+export async function fetchAds() {
+  try {
+    const response = await axios.get(`${WP_API_URL}/wp/v2/ads?_embed=true&_cb=${Date.now()}&per_page=100`, { timeout: 5000 });
+    const ads = response.data || [];
+    
+    console.log("ADS API RESPONSE:", ads);
+
+    const mappedAds = ads.map((ad) => {
+      console.log("AD ACF:", ad.acf);
+      console.log("AD PLACEMENT:", ad.acf?.placement);
+      console.log("AD IMAGE:", ad._embedded?.["wp:featuredmedia"]?.[0]?.source_url);
+
+      const featuredImage = ad._embedded?.["wp:featuredmedia"]?.[0]?.source_url || "";
+      const targetUrl = ad.acf?.target_url || "#";
+      
+      // Read placement from ACF
+      let placement = ad.acf?.placement || "";
+
+      // Smart title-based fallback if ACF placement is empty (acf: [])
+      if (!placement && ad.title?.rendered) {
+        const titleLower = String(ad.title.rendered).toLowerCase();
+        if (titleLower.includes('navbar') || titleLower.includes('header')) {
+          placement = "Navbar (Next to Top Logo)";
+        } else if (titleLower.includes('hero')) {
+          placement = "Hero Banner (Home Page Middle)";
+        } else if (titleLower.includes('footer')) {
+          placement = "Footer Banner";
+        } else if (titleLower.includes('left')) {
+          placement = "Left Sidebar (Article Pages)";
+        } else if (titleLower.includes('right')) {
+          placement = "Right Sidebar (Home & Article Pages)";
+        }
+      }
+
+      return {
+        id: ad.id,
+        title: ad.title?.rendered || "",
+        image: featuredImage,
+        image_url: featuredImage,
+        targetUrl: targetUrl,
+        target_url: targetUrl,
+        placement: placement,
+        is_active: true
+      };
+    }).filter((ad) => ad.image && ad.placement);
+
+    if (mappedAds.length === 0) {
+      console.warn("No valid CPT ads found, attempting legacy category fallback...");
+      return await getLegacyAds();
+    }
+
+    return mappedAds;
+  } catch (error) {
+    console.error("Error fetching ads, trying legacy fallback:", error);
+    return await getLegacyAds();
+  }
+}
+
+/**
+ * Clean helper function to filter ads strictly by their exact placement
+ */
+export async function fetchAdsByPlacement(placement) {
+  const ads = await fetchAds();
+  return ads.filter((ad) => {
+    if (Array.isArray(ad.placement)) {
+      return ad.placement.includes(placement);
+    }
+    return ad.placement === placement;
+  });
+}
+
+/**
+ * Legacy category ads fallback helper
+ */
+async function getLegacyAds() {
+  try {
+    let categoryId = null;
+    try {
+      const catRes = await axios.get(`${WP_API_URL}/wp/v2/categories?slug=advertisements&_cb=${Date.now()}`);
+      if (catRes.data && catRes.data.length > 0) {
+        categoryId = catRes.data[0].id;
+      } else {
+        const catAdsRes = await axios.get(`${WP_API_URL}/wp/v2/categories?slug=cat-ads&_cb=${Date.now()}`);
+        if (catAdsRes.data && catAdsRes.data.length > 0) {
+          categoryId = catAdsRes.data[0].id;
+        }
+      }
+    } catch (e) {
+      console.warn("Failed resolving legacy advertisements category");
+    }
+
+    if (categoryId) {
+      const response = await axios.get(`${WP_API_URL}/wp/v2/posts?categories=${categoryId}&_embed=true&_cb=${Date.now()}&per_page=12`, { timeout: 8000 });
+      if (response.data && response.data.length > 0) {
+        return response.data.map(post => {
+          const featuredImage = post._embedded?.['wp:featuredmedia']?.[0]?.source_url || '';
+          const targetUrl = post.acf?.target_url || "#";
+          
+          const terms = post._embedded?.['wp:term']?.[1] || [];
+          let placement = 'Right Sidebar (Home & Article Pages)';
+          
+          if (terms.some(t => t.slug === 'right' || t.name === 'right' || t.name === 'Right Sidebar')) {
+            placement = 'Right Sidebar (Home & Article Pages)';
+          } else if (terms.some(t => t.slug === 'header' || t.name === 'header' || t.slug === 'navbar' || t.name === 'Navbar')) {
+            placement = 'Navbar (Next to Top Logo)';
+          } else if (terms.some(t => t.slug === 'hero' || t.name === 'hero' || t.name === 'Hero banner')) {
+            placement = 'Hero Banner (Home Page Middle)';
+          } else if (terms.some(t => t.slug === 'footer' || t.name === 'footer' || t.name === 'Footer Banner')) {
+            placement = 'Footer Banner';
+          } else if (terms.some(t => t.slug === 'left' || t.name === 'left' || t.name === 'Left Sidebar')) {
+            placement = 'Left Sidebar (Article Pages)';
+          }
+
+          return {
+            id: post.id,
+            title: post.title?.rendered || "",
+            image: featuredImage,
+            image_url: featuredImage,
+            targetUrl: targetUrl,
+            target_url: targetUrl,
+            placement: placement,
+            is_active: true
+          };
+        }).filter(ad => ad.image && ad.placement);
+      }
+    }
+  } catch (e) {
+    console.warn("Failed loading legacy ads fallback:", e.message);
+  }
+  return [];
+}
+
+/**
+ * Clean helper function to fetch menu items from WordPress Appearance -> Menus -> Main Menu
+ */
+export async function fetchMainMenu() {
+  // First Priority: Try the user's working custom main-menu endpoint
+  try {
+    const response = await axios.get(`${WP_API_URL}/custom/v1/main-menu?_cb=${Date.now()}`, { timeout: 5000 });
+    if (response.data && response.data.success && Array.isArray(response.data.items)) {
+      const items = response.data.items;
+      // Sort menu items by order ascending
+      const sortedItems = items.sort((a, b) => (parseInt(a.order) || 0) - (parseInt(b.order) || 0));
+      return sortedItems.map(item => {
+        return {
+          id: item.id,
+          title: item.title,
+          url: item.url,
+          type: item.type || "custom",
+          parent: parseInt(item.parent) || 0,
+          order: parseInt(item.order) || 0
+        };
+      });
+    }
+  } catch (error) {
+    console.warn("Custom WordPress main-menu fetch failed, trying standard locations:", error.message);
+  }
+
+  // Backup Endpoints
+  const endpoints = [
+    `${WP_API_URL}/custom/v1/menu`,
+    `${WP_API_URL}/wp-api-menus/v2/menu-locations/main-menu`,
+    `${WP_API_URL}/wp-api-menus/v2/menus`,
+    `${WP_API_URL}/menus/v1/menus/main-menu`,
+    `${WP_API_URL}/menus/v1/menus`,
+    `${WP_API_URL}/wp/v2/menus`,
+    `${WP_API_URL}/wp/v2/menu-items`
+  ];
+
+  for (const endpoint of endpoints) {
+    try {
+      const response = await axios.get(endpoint, { timeout: 3000 });
+      let items = [];
+
+      if (Array.isArray(response.data)) {
+        items = response.data;
+      } else if (response.data?.items) {
+        items = response.data.items;
+      } else if (response.data?.[0]?.items) {
+        items = response.data[0].items;
+      }
+
+      if (items.length > 0) {
+        const sortedItems = items.sort((a, b) => (parseInt(a.menu_order || a.order) || 0) - (parseInt(b.menu_order || b.order) || 0));
+        return sortedItems.map((item, idx) => {
+          let slug = item.slug || "";
+          if (!slug && item.url) {
+            const parts = item.url.split('/').filter(Boolean);
+            slug = parts[parts.length - 1] || "custom";
+          }
+          
+          return {
+            id: item.ID || item.id || idx,
+            title: item.title || item.name || "",
+            url: item.url || "#",
+            slug: slug,
+            type: item.type || "custom",
+            parent: parseInt(item.menu_item_parent || item.parent) || 0,
+            order: parseInt(item.menu_order || item.order) || idx + 1
+          };
+        });
+      }
+    } catch (e) {
+      // Continue to next endpoint if failed
+    }
+  }
+
+  console.warn("No active WordPress Menu REST API plugin detected. Falling back to structured main menu items.");
+  return await getFallbackMenu();
+}
+
+/**
+ * Menu fallback generator using user's required menu list and WordPress categories
+ */
+async function getFallbackMenu() {
+  try {
+    const categories = await wpService.getCategories();
+    
+    const requiredLabels = [
+      { title: "होम", slug: "home", url: "/" },
+      { title: "राज्य", slug: "jharkhand", url: "/category/jharkhand" },
+      { title: "राजनीति", slug: "politics", url: "/category/politics" },
+      { title: "लाइफस्टाइल", slug: "lifestyle", url: "/category/lifestyle" },
+      { title: "बिजनेस", slug: "business", url: "/category/business" },
+      { title: "मनोरंजन", slug: "entertainment", url: "/category/entertainment" },
+      { title: "हेल्थ", slug: "health", url: "/category/health" },
+      { title: "टेक", slug: "technology", url: "/category/technology" },
+      { title: "शिक्षा", slug: "career", url: "/category/career" },
+      { title: "ऑटो", slug: "automobile", url: "/category/automobile" },
+      { title: "खेल", slug: "sports", url: "/category/sports" },
+      { title: "धर्म", slug: "religion", url: "/category/religion" }
+    ];
+
+    return requiredLabels.map((item, idx) => {
+      const mappedSlug = DB_SLUG_MAP[item.slug] || item.slug;
+      const matchedCat = categories.find(c => c.slug === item.slug || c.slug === mappedSlug);
+      
+      return {
+        id: matchedCat ? matchedCat.id : 1000 + idx,
+        title: item.title,
+        url: item.url,
+        slug: matchedCat ? matchedCat.slug : item.slug,
+        type: matchedCat ? "category" : "custom",
+        parent: 0,
+        order: idx + 1
+      };
+    });
+  } catch (error) {
+    console.warn("Failed generating category-based fallback menu:", error.message);
+    return [];
+  }
+}
 
 export default wpService;

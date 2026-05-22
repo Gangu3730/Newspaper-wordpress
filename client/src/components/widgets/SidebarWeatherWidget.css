@@ -101,3 +101,30 @@
   align-items: center;
   gap: 6px;
 }
+
+/* Custom Animations & Interactions for dynamic weather card */
+.location-detect-btn:hover {
+  background-color: #f3f4f6 !important;
+  transform: scale(1.08);
+}
+
+.location-detect-btn:active {
+  transform: scale(0.95);
+}
+
+.animate-spin {
+  animation: weather-spin 1s linear infinite;
+}
+
+.animate-spin-slow {
+  animation: weather-spin 8s linear infinite;
+}
+
+@keyframes weather-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}

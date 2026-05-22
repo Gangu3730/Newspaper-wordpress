@@ -3,7 +3,7 @@
   padding-bottom: var(--spacing-16);
   max-width: 800px !important; /* Editorial centered reading layout */
   width: 100%;
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 .article-detail--loading {

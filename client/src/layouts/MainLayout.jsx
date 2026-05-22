@@ -5,8 +5,38 @@ import { Sun, Moon, Mail, MapPin, Phone, Award, Menu, X, Search, ChevronLeft, Ch
 import WeatherWidget from '../components/weather/WeatherWidget';
 import './MainLayout.css';
 
+const normalizeMenuUrl = (url) => {
+  try {
+    const parsed = new URL(url);
+    const path = parsed.pathname.replace(/\/$/, "");
+    if (path === '' || path === '/category/home') {
+      return '/';
+    }
+    return path;
+  } catch {
+    if (url === '/' || url === '' || url === '/category/home') {
+      return '/';
+    }
+    return url;
+  }
+};
+
+const getMenuLink = (item) => {
+  if (!item.url) return '/';
+  
+  const normalized = normalizeMenuUrl(item.url);
+  
+  // If it's an external custom link, keep it as external URL
+  if (normalized.startsWith('http') && !normalized.includes('newspaper.keshav-enterprises.co.in')) {
+    return normalized;
+  }
+  
+  return normalized;
+};
+
 const MainLayout = () => {
   const [categories, setCategories] = useState([]);
+  const [menuItems, setMenuItems] = useState([]);
   const [ads, setAds] = useState([]);
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light');
   const navigate = useNavigate();
@@ -44,8 +74,10 @@ const MainLayout = () => {
     // Attempt to load from session cache first for instant load speed
     const cachedCats = sessionStorage.getItem('news_categories');
     const cachedAds = sessionStorage.getItem('news_ads');
+    const cachedMenu = sessionStorage.getItem('news_menu_items');
     if (cachedCats) setCategories(JSON.parse(cachedCats));
     if (cachedAds) setAds(JSON.parse(cachedAds));
+    if (cachedMenu) setMenuItems(JSON.parse(cachedMenu));
 
     // Background fetch to keep content fresh without stalling the UI
     wpService.getCategories()
@@ -62,6 +94,14 @@ const MainLayout = () => {
         sessionStorage.setItem('news_ads', JSON.stringify(adsData));
       })
       .catch(err => console.error("Error fetching ads:", err));
+
+    // Fetch main menu dynamically
+    wpService.fetchMainMenu()
+      .then(menuData => {
+        setMenuItems(menuData);
+        sessionStorage.setItem('news_menu_items', JSON.stringify(menuData));
+      })
+      .catch(err => console.error("Error fetching main menu:", err));
   }, []);
 
   const toggleTheme = () => {
@@ -84,8 +124,14 @@ const MainLayout = () => {
     }
   };
 
-  const headerAd = ads.find(ad => ad.placement === 'header' && ad.is_active);
-  const footerAd = ads.find(ad => ad.placement === 'footer' && ad.is_active);
+  const headerAd = ads.find(ad => {
+    const placements = Array.isArray(ad.placement) ? ad.placement : [ad.placement];
+    return placements.includes("Navbar (Next to Top Logo)") && ad.is_active;
+  });
+  const footerAd = ads.find(ad => {
+    const placements = Array.isArray(ad.placement) ? ad.placement : [ad.placement];
+    return placements.includes("Footer Banner") && ad.is_active;
+  });
 
   // Check if current route is admin panel
   const isAdminRoute = location.pathname.startsWith('/admin');
@@ -112,6 +158,21 @@ const MainLayout = () => {
             <WeatherWidget />
           </div>
           <div className="top-bar__links">
+            <div className="header-social-links" style={{ display: 'inline-flex', alignItems: 'center', gap: '12px', marginRight: '12px' }}>
+              <a href="https://www.facebook.com/PoliticalEyeIndia" target="_blank" rel="noopener noreferrer" className="header-social-icon-link" style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center', transition: 'color 0.2s' }} title="Facebook">
+                <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>
+              </a>
+              <a href="https://x.com/PoliticalEyeIND" target="_blank" rel="noopener noreferrer" className="header-social-icon-link" style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center', transition: 'color 0.2s' }} title="Twitter / X">
+                <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 4s-.7 2.1-2 3.4c1.6 10-9.4 17.3-18 11.6 2.2.1 4.4-.6 6-2C3 15.5.5 9.6 3 5c2.2 2.6 5.6 4.1 9 4-.9-4.2 4-6.6 7-3.8 1.1 0 3-1.2 3-1.2z"/></svg>
+              </a>
+              <a href="https://www.youtube.com/@PoliticalEyeIndia" target="_blank" rel="noopener noreferrer" className="header-social-icon-link" style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center', transition: 'color 0.2s' }} title="YouTube">
+                <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33A2.78 2.78 0 0 0 3.4 19c1.72.46 8.6.46 8.6.46s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.25 29 29 0 0 0-.46-5.33z"/><polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02"/></svg>
+              </a>
+              <a href="https://www.instagram.com/politicaleyeindia/" target="_blank" rel="noopener noreferrer" className="header-social-icon-link" style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center', transition: 'color 0.2s' }} title="Instagram">
+                <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
+              </a>
+            </div>
+            <span className="top-bar__sep" style={{ marginRight: '12px' }}>|</span>
             <Link to="/">ई-पेपर</Link>
             <button 
               onClick={toggleTheme} 
@@ -161,17 +222,13 @@ const MainLayout = () => {
           </div>
           
           {/* Dynamic Header Ad Banner Space */}
-          <div className="header-ad">
-            {headerAd ? (
-              <a href={headerAd.target_url} target="_blank" rel="noopener noreferrer">
-                <img src={headerAd.image_url} alt={headerAd.title} className="header-ad__img" />
+          {headerAd && (headerAd.image || headerAd.image_url) && (
+            <div className="header-ad">
+              <a href={headerAd.targetUrl || headerAd.target_url || "#"} target="_blank" rel="noopener noreferrer">
+                <img src={headerAd.image || headerAd.image_url} alt={headerAd.title} className="header-ad__img" />
               </a>
-            ) : (
-              <a href="#" target="_blank" rel="noopener noreferrer">
-                <img src="https://newspaper.keshav-enterprises.co.in/wp-content/uploads/2026/05/ChatGPT-Image-May-21-2026-03_40_37-PM-e1779358275697.png" alt="Advertisement" className="header-ad__img" />
-              </a>
-            )}
-          </div>
+            </div>
+          )}
 
           {/* Spacer for perfect mobile symmetry */}
           <div className="header-right-spacer"></div>
@@ -223,20 +280,27 @@ const MainLayout = () => {
         </div>
 
         <ul className="nav-menu__list mobile-list">
-          <li className="nav-menu__item">
-            <Link to="/" className={`nav-menu__link ${location.pathname === '/' ? 'active' : ''}`} onClick={() => setIsMobileMenuOpen(false)}>होम</Link>
-          </li>
-          {navCategories.map(cat => (
-            <li key={cat.id} className="nav-menu__item">
-              <Link 
-                to={`/category/${cat.slug}`} 
-                className={`nav-menu__link ${location.pathname === `/category/${cat.slug}` ? 'active' : ''}`}
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                {cat.name}
-              </Link>
-            </li>
-          ))}
+          {menuItems.map(item => {
+            const linkPath = getMenuLink(item);
+            const isExternal = linkPath.startsWith('http');
+            return (
+              <li key={item.id} className="nav-menu__item">
+                {isExternal ? (
+                  <a href={linkPath} target="_blank" rel="noopener noreferrer" className="nav-menu__link" onClick={() => setIsMobileMenuOpen(false)}>
+                    {item.title}
+                  </a>
+                ) : (
+                  <Link 
+                    to={linkPath} 
+                    className={`nav-menu__link ${location.pathname === linkPath ? 'active' : ''}`}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    {item.title}
+                  </Link>
+                )}
+              </li>
+            );
+          })}
         </ul>
       </div>
 
@@ -252,19 +316,26 @@ const MainLayout = () => {
             </button>
             
             <ul className="nav-menu__list" ref={scrollContainerRef}>
-              <li className="nav-menu__item">
-                <Link to="/" className={`nav-menu__link ${location.pathname === '/' ? 'active' : ''}`}>होम</Link>
-              </li>
-              {navCategories.map(cat => (
-                <li key={cat.id} className="nav-menu__item">
-                  <Link 
-                    to={`/category/${cat.slug}`} 
-                    className={`nav-menu__link ${location.pathname === `/category/${cat.slug}` ? 'active' : ''}`}
-                  >
-                    {cat.name}
-                  </Link>
-                </li>
-              ))}
+              {menuItems.map(item => {
+                const linkPath = getMenuLink(item);
+                const isExternal = linkPath.startsWith('http');
+                return (
+                  <li key={item.id} className="nav-menu__item">
+                    {isExternal ? (
+                      <a href={linkPath} target="_blank" rel="noopener noreferrer" className="nav-menu__link">
+                        {item.title}
+                      </a>
+                    ) : (
+                      <Link 
+                        to={linkPath} 
+                        className={`nav-menu__link ${location.pathname === linkPath ? 'active' : ''}`}
+                      >
+                        {item.title}
+                      </Link>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
 
             <button className="nav-scroll-btn right-btn" onClick={() => scrollMenu('right')} aria-label="Scroll Right">
@@ -337,17 +408,13 @@ const MainLayout = () => {
       </main>
 
       {/* Dynamic Footer Banner */}
-      <div className="container footer-ad-wrapper">
-        {footerAd ? (
-          <a href={footerAd.target_url} target="_blank" rel="noopener noreferrer">
-            <img src={footerAd.image_url} alt={footerAd.title} className="footer-ad__img" />
+      {footerAd && (footerAd.image || footerAd.image_url) && (
+        <div className="container footer-ad-wrapper">
+          <a href={footerAd.targetUrl || footerAd.target_url || "#"} target="_blank" rel="noopener noreferrer">
+            <img src={footerAd.image || footerAd.image_url} alt={footerAd.title} className="footer-ad__img" />
           </a>
-        ) : (
-          <a href="#" target="_blank" rel="noopener noreferrer">
-            <img src="https://newspaper.keshav-enterprises.co.in/wp-content/uploads/2026/05/ChatGPT-Image-May-21-2026-03_40_37-PM-e1779358275697.png" alt="Advertisement" className="footer-ad__img" />
-          </a>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Premium Content-Rich Footer */}
       <footer className="main-footer">
@@ -355,27 +422,27 @@ const MainLayout = () => {
           {/* Brand & Social Column */}
           <div className="footer-column footer-brand-column">
             <div className="footer-brand-header">
-              <h2>प्रभात खबर</h2>
-              <span className="footer-tagline">आम लोगों का भरोसा</span>
+              <img 
+                src="https://newspaper.keshav-enterprises.co.in/wp-content/uploads/2026/05/Untitled-design-4.jpg.jpeg" 
+                alt="Logo" 
+                style={{ maxHeight: '70px', width: 'auto', marginBottom: '15px', display: 'block', borderRadius: '8px' }} 
+              />
             </div>
             <p className="footer-brand-desc">
-              बिहार, झारखंड और देश-विदेश की तमाम ताज़ा ख़बरों के लिए आपका सबसे भरोसेमंद डिजिटल न्यूज़ पोर्टल। निष्पक्षता और गुणवत्तापूर्ण पत्रकारिता के साथ हर पल अपडेट।
+              देश-विदेश, राजनीति, चुनाव और सरकारी नीतियों की सटीक व निष्पक्ष ताज़ा ख़बरों के लिए आपका सबसे भरोसेमंद डिजिटल न्यूज़ पोर्टल। निष्पक्षता और गुणवत्तापूर्ण पत्रकारिता के साथ हर पल अपडेट।
             </p>
             <div className="footer-social-cluster">
-              <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" className="social-icon facebook" aria-label="Facebook">
+              <a href="https://www.facebook.com/PoliticalEyeIndia" target="_blank" rel="noopener noreferrer" className="social-icon facebook" aria-label="Facebook">
                 <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>
               </a>
-              <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" className="social-icon twitter" aria-label="Twitter">
+              <a href="https://x.com/PoliticalEyeIND" target="_blank" rel="noopener noreferrer" className="social-icon twitter" aria-label="Twitter">
                 <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 4s-.7 2.1-2 3.4c1.6 10-9.4 17.3-18 11.6 2.2.1 4.4-.6 6-2C3 15.5.5 9.6 3 5c2.2 2.6 5.6 4.1 9 4-.9-4.2 4-6.6 7-3.8 1.1 0 3-1.2 3-1.2z"/></svg>
               </a>
-              <a href="https://youtube.com" target="_blank" rel="noopener noreferrer" className="social-icon youtube" aria-label="YouTube">
+              <a href="https://www.youtube.com/@PoliticalEyeIndia" target="_blank" rel="noopener noreferrer" className="social-icon youtube" aria-label="YouTube">
                 <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33A2.78 2.78 0 0 0 3.4 19c1.72.46 8.6.46 8.6.46s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.25 29 29 0 0 0-.46-5.33z"/><polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02"/></svg>
               </a>
-              <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" className="social-icon instagram" aria-label="Instagram">
+              <a href="https://www.instagram.com/politicaleyeindia/" target="_blank" rel="noopener noreferrer" className="social-icon instagram" aria-label="Instagram">
                 <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
-              </a>
-              <a href="https://telegram.org" target="_blank" rel="noopener noreferrer" className="social-icon telegram" aria-label="Telegram">
-                <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
               </a>
             </div>
           </div>
@@ -384,11 +451,11 @@ const MainLayout = () => {
           <div className="footer-column">
             <h4>मुख्य श्रेणियां</h4>
             <ul className="footer-links-list">
-              <li><Link to="/category/bihar">बिहार समाचार</Link></li>
-              <li><Link to="/category/jharkhand">झारखंड समाचार</Link></li>
-              <li><Link to="/category/national">देश विदेश</Link></li>
-              <li><Link to="/category/sports">खेल जगत</Link></li>
-              <li><Link to="/category/entertainment">मनोरंजन</Link></li>
+              {navCategories.slice(0, 6).map(category => (
+                <li key={category.id}>
+                  <Link to={`/category/${category.slug}`}>{category.name}</Link>
+                </li>
+              ))}
             </ul>
           </div>
 
@@ -398,15 +465,15 @@ const MainLayout = () => {
             <ul className="footer-contact-list">
               <li style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
                 <MapPin size={16} className="contact-icon" style={{ marginTop: '3px' }} />
-                <span>प्रभात प्रकाशन समूह, न्यू इंडस्ट्रियल एरिया, पटना, बिहार - 800001</span>
+                <span>Unit No. 522, 5Th Floor, Cloud 9, Sector 3F, Sector-1, Vaishali, Ghaziabad, Uttar Pradesh 201010</span>
               </li>
               <li style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Phone size={16} className="contact-icon" />
-                <span>+91 612 245 9830</span>
+                <span>093101 42209</span>
               </li>
               <li style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Mail size={16} className="contact-icon" />
-                <span>contact@prabhatkhabar.com</span>
+                <span>contact@politicaleye.in</span>
               </li>
               <li style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Award size={16} className="contact-icon" />
@@ -464,7 +531,22 @@ const MainLayout = () => {
         {/* Bottom copyright details */}
         <div className="footer-bottom">
           <div className="container footer-bottom__container">
-            <p>&copy; {new Date().getFullYear()} प्रभात खबर. सर्वाधिकार सुरक्षित। आम लोगों का भरोसा।</p>
+            <p>
+              &copy; {new Date().getFullYear()} Political Eye (पॉलिटिकल आई). सर्वाधिकार सुरक्षित। |{' '}
+              <span style={{ color: 'var(--text-muted)' }}>
+                Designed & Developed By{' '}
+                <a 
+                  href="https://ysrinfotech.com/" 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  style={{ color: '#0ea5e9', fontWeight: '600', textDecoration: 'none', transition: 'color 0.2s' }}
+                  onMouseEnter={(e) => e.currentTarget.style.color = '#38bdf8'}
+                  onMouseLeave={(e) => e.currentTarget.style.color = '#0ea5e9'}
+                >
+                  YSRINFOTECH
+                </a>
+              </span>
+            </p>
             <div className="footer-bottom-links">
               <Link to="/privacy">गोपनीयता नीति</Link>
               <span>•</span>

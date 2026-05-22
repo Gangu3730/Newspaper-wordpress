@@ -11,18 +11,29 @@ const fallbackShorts = [
   { id: 'f6', title: 'Share Market: आज के टॉप गेनर्स', featured_image: 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=500&q=80', views: '1.8M' }
 ];
 
-const ShortsWidget = ({ shorts = [] }) => {
+const ShortsWidget = ({ shorts = [], onPlay }) => {
   const displayShorts = shorts && shorts.length > 0 ? shorts : fallbackShorts;
 
   return (
     <div className="shorts-widget">
       <div className="shorts-widget__header">
         <h2 className="shorts-widget__title">Shorts</h2>
-        <a href="#more-shorts" className="shorts-widget__more">और देखें</a>
+        <a href="https://www.youtube.com/@PoliticalEyeIndia/shorts" target="_blank" rel="noopener noreferrer" className="shorts-widget__more">और देखें</a>
       </div>
       <div className="shorts-widget__scroll-container">
         {displayShorts.map((short) => (
-          <div key={short.id} className="shorts-card">
+          <div 
+            key={short.id} 
+            className="shorts-card"
+            onClick={() => {
+              if (onPlay && short.youtube_id) {
+                onPlay(short.youtube_id);
+              } else if (short.url) {
+                window.open(short.url, '_blank');
+              }
+            }}
+            style={{ cursor: 'pointer' }}
+          >
             <div className="shorts-card__thumbnail">
               <img src={short.featured_image || 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=500&q=80'} alt={short.title} />
               <div className="shorts-card__overlay">

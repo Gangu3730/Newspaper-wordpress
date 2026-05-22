@@ -14,23 +14,15 @@ const ArticleDetail = () => {
   const [leftAd, setLeftAd] = useState(null);
   const [rightAd, setRightAd] = useState(null);
   
-  // Comment Form State
-  const [name, setName] = useState('');
-  const [commentText, setCommentText] = useState('');
-  const [submitSuccess, setSubmitSuccess] = useState(false);
-  const [comments, setComments] = useState([]);
-
   useEffect(() => {
     setLoading(true);
-    setSubmitSuccess(false);
     
-    // Fetch article details & comments
+    // Fetch article details
     wpService.getPostBySlug(slug)
       .then(post => {
         setArticle(post);
-        return wpService.getComments(post.id).then(c => setComments(c || [])).catch(() => setComments(post.comments || []));
+        setLoading(false);
       })
-      .then(() => setLoading(false))
       .catch(err => {
         console.error("Error fetching article details:", err);
         setError("खबर लोड करने में असमर्थ। कृपया बाद में प्रयास करें।");
@@ -40,8 +32,14 @@ const ArticleDetail = () => {
     // Fetch advertisements from WordPress backend
     wpService.getAdvertisements()
       .then(ads => {
-        const left = ads.find(a => a.placement === 'left');
-        const right = ads.find(a => a.placement === 'right');
+        const left = ads.find(a => {
+          const placements = Array.isArray(a.placement) ? a.placement : [a.placement];
+          return placements.includes("Left Sidebar (Article Pages)");
+        });
+        const right = ads.find(a => {
+          const placements = Array.isArray(a.placement) ? a.placement : [a.placement];
+          return placements.includes("Right Sidebar (Home & Article Pages)");
+        });
         setLeftAd(left || null);
         setRightAd(right || null);
       })
@@ -49,32 +47,6 @@ const ArticleDetail = () => {
         console.warn("Failed loading ads for details page:", err);
       });
   }, [slug]);
-
-  const handleCommentSubmit = (e) => {
-    e.preventDefault();
-    if (!name.trim() || !commentText.trim()) return;
-    if (!article) return;
-
-    wpService.submitComment(article.id, name, 'guest@newspaper.com', commentText)
-      .then(saved => {
-        setComments(prev => [saved, ...prev]);
-        setName('');
-        setCommentText('');
-        setSubmitSuccess(true);
-      })
-      .catch(err => {
-        const newComment = {
-          id: Date.now(),
-          author_name: name,
-          comment: commentText,
-          created_at: new Date().toISOString(),
-        };
-        setComments(prev => [newComment, ...prev]);
-        setName('');
-        setCommentText('');
-        setSubmitSuccess(true);
-      });
-  };
 
   const formatDate = (dateStr) => {
     if (!dateStr) return '';
@@ -106,18 +78,14 @@ const ArticleDetail = () => {
   return (
     <div className="article-page-layout">
       {/* Sticky Left Skyscraper Ad Column */}
-      <aside className="side-ad side-ad--left">
-        {leftAd ? (
-          <a href={leftAd.target_url} target="_blank" rel="noopener noreferrer" className="side-ad__link">
-            <img src={leftAd.image_url} alt={leftAd.title} className="side-ad__img" />
+      {leftAd && (leftAd.image || leftAd.image_url) && (
+        <aside className="side-ad side-ad--left">
+          <a href={leftAd.targetUrl || leftAd.target_url || "#"} target="_blank" rel="noopener noreferrer" className="side-ad__link">
+            <img src={leftAd.image || leftAd.image_url} alt={leftAd.title} className="side-ad__img" />
             <span className="side-ad__label">विज्ञापन</span>
           </a>
-        ) : (
-          <div className="side-ad__placeholder">
-            <span>विज्ञापन (160x600)</span>
-          </div>
-        )}
-      </aside>
+        </aside>
+      )}
 
       {/* Main Center Article Card Box */}
       <article className="article-detail">
@@ -170,79 +138,17 @@ const ArticleDetail = () => {
         {/* Article Full Content */}
         <div className="article-detail__content" dangerouslySetInnerHTML={{ __html: sanitizeHtml(article.content) }} />
 
-        {/* Interactive Comments Section */}
-        <section className="comments-section">
-          <h3 className="comments-section__title">प्रतिक्रियाएं ({comments.length})</h3>
-
-          {/* Comment Form */}
-          <form onSubmit={handleCommentSubmit} className="comment-form">
-            <h4 className="comment-form__title">अपनी प्रतिक्रिया दें</h4>
-            
-            {submitSuccess && (
-              <div className="alert alert--success">
-                आपकी प्रतिक्रिया सफलतापूर्वक जोड़ दी गई है और जल्द ही लाइव होगी!
-              </div>
-            )}
-
-            <div className="form-group">
-              <label htmlFor="commenter-name">आपका नाम</label>
-              <input 
-                type="text" 
-                id="commenter-name" 
-                value={name} 
-                onChange={e => setName(e.target.value)} 
-                placeholder="यहाँ अपना नाम लिखें" 
-                required 
-              />
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="comment-body">टिप्पणी</label>
-              <textarea 
-                id="comment-body" 
-                rows="4" 
-                value={commentText} 
-                onChange={e => setCommentText(e.target.value)} 
-                placeholder="खबर के बारे में अपनी राय यहाँ व्यक्त करें" 
-                required
-              ></textarea>
-            </div>
-
-            <button type="submit" className="comment-form__submit">सबमिट करें</button>
-          </form>
-
-          {/* Comment List */}
-          <div className="comments-list">
-            {comments.length === 0 ? (
-              <p className="empty-comments">इस खबर पर अभी कोई टिप्पणी नहीं है। पहली टिप्पणी आपकी हो सकती है!</p>
-            ) : (
-              comments.map(c => (
-                <div key={c.id} className="comment-item">
-                  <div className="comment-item__header">
-                    <span className="comment-item__author">{c.author_name}</span>
-                    <span className="comment-item__date">{formatDate(c.created_at)}</span>
-                  </div>
-                  <p className="comment-item__text">{c.comment}</p>
-                </div>
-              ))
-            )}
-          </div>
-        </section>
       </article>
 
       {/* Sticky Right Skyscraper Ad Column */}
-      <aside className="side-ad side-ad--right">
-        {rightAd ? (
-          <a href={rightAd.target_url} target="_blank" rel="noopener noreferrer" className="side-ad__link">
-            <img src={rightAd.image_url} alt={rightAd.title} className="side-ad__img" />
+      {rightAd && (rightAd.image || rightAd.image_url) && (
+        <aside className="side-ad side-ad--right">
+          <a href={rightAd.targetUrl || rightAd.target_url || "#"} target="_blank" rel="noopener noreferrer" className="side-ad__link">
+            <img src={rightAd.image || rightAd.image_url} alt={rightAd.title} className="side-ad__img" />
             <span className="side-ad__label">विज्ञापन</span>
           </a>
-        ) : (
-          <div className="side-ad__placeholder">
-            <span>विज्ञापन (160x600)</span>
-          </div>
-        )}
-      </aside>
+        </aside>
+      )}
     </div>
   );
 };

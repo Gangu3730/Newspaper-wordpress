@@ -1,19 +1,76 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Sun, CloudSun, CloudFog, CloudRain, Snowflake, CloudLightning, Cloud, Search } from 'lucide-react';
+import { Sun, CloudSun, CloudFog, CloudRain, Snowflake, CloudLightning, Cloud, Search, Compass, Loader2 } from 'lucide-react';
 import './WeatherWidget.css';
 
 const DEFAULT_CITY = { name: 'पटना', lat: 25.5948, lon: 85.1376 };
 
 const WeatherWidget = () => {
-  const [selectedCity, setSelectedCity] = useState(DEFAULT_CITY);
+  const [selectedCity, setSelectedCity] = useState(null);
   const [weatherData, setWeatherData] = useState({ temp: 31, code: 0 });
   const [aqiData, setAqiData] = useState(55);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchError, setSearchError] = useState(false);
+  const [locationDetecting, setLocationDetecting] = useState(false);
+
+  // Auto-detect location on mount
+  useEffect(() => {
+    detectLocation();
+  }, []);
+
+  const detectLocation = () => {
+    setLocationDetecting(true);
+    
+    if (!navigator.geolocation) {
+      fallbackToIP();
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        try {
+          const res = await axios.get(`https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&accept-language=hi,en`);
+          const name = res.data?.address?.city || res.data?.address?.town || res.data?.address?.suburb || '📍 मेरा स्थान';
+          setSelectedCity({ name, lat: latitude, lon: longitude });
+        } catch {
+          setSelectedCity({ name: '📍 वर्तमान स्थान', lat: latitude, lon: longitude });
+        } finally {
+          setLocationDetecting(false);
+        }
+      },
+      (error) => {
+        console.warn("Header Weather: Geolocation blocked/failed. Trying IP location...", error);
+        fallbackToIP();
+      },
+      { timeout: 5000 }
+    );
+  };
+
+  const fallbackToIP = async () => {
+    try {
+      const res = await axios.get('https://ipapi.co/json/');
+      if (res.data && res.data.latitude && res.data.longitude) {
+        setSelectedCity({
+          name: res.data.city || 'Ghaziabad',
+          lat: res.data.latitude,
+          lon: res.data.longitude
+        });
+      } else {
+        setSelectedCity(DEFAULT_CITY);
+      }
+    } catch (err) {
+      console.error("IP Geolocator failed in header weather:", err);
+      setSelectedCity(DEFAULT_CITY);
+    } finally {
+      setLocationDetecting(false);
+    }
+  };
 
   useEffect(() => {
+    if (!selectedCity) return;
+
     setLoading(true);
     setSearchError(false);
     const fetchWeather = async () => {
@@ -33,7 +90,6 @@ const WeatherWidget = () => {
         setAqiData(Math.round(aqiRes.data.current.us_aqi || 45));
       } catch (err) {
         console.error("Error fetching live weather:", err);
-        // Robust dynamic mocks fallback
         const randTemp = Math.floor(Math.random() * (35 - 28 + 1)) + 28;
         const randAqi = Math.floor(Math.random() * (120 - 45 + 1)) + 45;
         setWeatherData({ temp: randTemp, code: 1 });
@@ -54,7 +110,6 @@ const WeatherWidget = () => {
     setLoading(true);
     setSearchError(false);
     try {
-      // Free geocoding query translates English or Hindi names to coordinates
       const geocodeUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(searchQuery.trim())}&count=1&language=en&format=json`;
       const geoRes = await axios.get(geocodeUrl);
 
@@ -100,10 +155,19 @@ const WeatherWidget = () => {
   const weather = getWeatherDesc(weatherData.code);
   const aqi = getAqiLevel(aqiData);
 
+  if (!selectedCity) {
+    return (
+      <div className="weather-widget" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+        <Loader2 className="animate-spin" size={12} style={{ color: 'var(--accent-orange)' }} />
+        <span className="weather-widget__loading" style={{ fontSize: '0.78rem' }}>मौसम लोड हो रहा है...</span>
+      </div>
+    );
+  }
+
   return (
-    <div className="weather-widget">
+    <div className="weather-widget" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
       {/* City/State Search Box Form */}
-      <form onSubmit={handleSearch} className="weather-widget__search-form">
+      <form onSubmit={handleSearch} className="weather-widget__search-form" style={{ display: 'flex', alignItems: 'center' }}>
         <input 
           type="text" 
           placeholder={searchError ? "नहीं मिला!" : `${selectedCity.name}...`}
@@ -116,10 +180,34 @@ const WeatherWidget = () => {
         </button>
       </form>
 
+      {/* GPS Retrigger Button next to input */}
+      <button 
+        onClick={detectLocation}
+        className={`header-detect-btn ${locationDetecting ? 'animate-spin' : ''}`}
+        style={{
+          border: 'none',
+          background: 'none',
+          cursor: 'pointer',
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '2px',
+          color: 'var(--text-muted)',
+          transition: 'color 0.2s'
+        }}
+        title="स्वचालित स्थान खोजें (GPS)"
+      >
+        {locationDetecting ? (
+          <Loader2 size={12} className="animate-spin" style={{ color: 'var(--accent-orange)' }} />
+        ) : (
+          <Compass size={12} style={{ color: 'var(--accent-orange)' }} />
+        )}
+      </button>
+
       {loading ? (
-        <span className="weather-widget__loading">खोज जारी है...</span>
+        <span className="weather-widget__loading" style={{ fontSize: '0.78rem' }}>लोड हो रहा है...</span>
       ) : (
-        <div className="weather-widget__data">
+        <div className="weather-widget__data" style={{ display: 'inline-flex', alignItems: 'center' }}>
           <span className="weather-widget__temp" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
             {weather.icon}
             <span>{weatherData.temp}°C ({weather.text})</span>

@@ -16,6 +16,12 @@ const NewsCard = ({ article, variant = 'standard' }) => {
         <div className="news-card__image-wrapper">
           <img 
             src={featured_image} 
+            alt="" 
+            className="news-card__image-blur" 
+            aria-hidden="true" 
+          />
+          <img 
+            src={featured_image} 
             srcSet={featured_image_srcset || undefined}
             sizes={featured_image_srcset ? '(max-width: 600px) 100vw, 33vw' : undefined}
             alt={featured_image_alt || title} 

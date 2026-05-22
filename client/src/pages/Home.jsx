@@ -326,7 +326,10 @@ const Home = () => {
                     <div className="split-column__items">
                       {techNews.slice(0, 3).map(article => (
                         <div key={article.id} className="editorial-row-card">
-                          <img src={article.featured_image} alt={article.title} className="row-card__img" />
+                          <div className="row-card__img-wrapper">
+                            <img src={article.featured_image} alt="" className="row-card__img-blur" aria-hidden="true" />
+                            <img src={article.featured_image} alt={article.title} className="row-card__img" />
+                          </div>
                           <div className="row-card__body">
                             <h4 className="row-card__title"><Link to={`/news/${article.slug}`}>{article.title}</Link></h4>
                           </div>
@@ -339,7 +342,10 @@ const Home = () => {
                     <div className="split-column__items">
                       {autoNews.slice(0, 3).map(article => (
                         <div key={article.id} className="editorial-row-card">
-                          <img src={article.featured_image} alt={article.title} className="row-card__img" />
+                          <div className="row-card__img-wrapper">
+                            <img src={article.featured_image} alt="" className="row-card__img-blur" aria-hidden="true" />
+                            <img src={article.featured_image} alt={article.title} className="row-card__img" />
+                          </div>
                           <div className="row-card__body">
                             <h4 className="row-card__title"><Link to={`/news/${article.slug}`}>{article.title}</Link></h4>
                           </div>

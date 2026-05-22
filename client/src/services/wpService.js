@@ -69,7 +69,7 @@ const getFeaturedImage = (post) => {
   }
 
   const sizes = media.media_details?.sizes || {};
-  const preferredKeys = ['post-thumbnail', 'medium', 'medium_large', 'large', 'full'];
+  const preferredKeys = ['large', 'medium_large', 'full', 'medium', 'post-thumbnail'];
   for (const key of preferredKeys) {
     if (sizes[key] && sizes[key].source_url) return sizes[key].source_url;
   }

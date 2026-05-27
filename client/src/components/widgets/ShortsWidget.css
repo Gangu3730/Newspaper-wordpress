@@ -35,21 +35,74 @@
   text-decoration: none;
 }
 
+.shorts-carousel-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
 .shorts-widget__scroll-container {
   display: flex;
-  gap: 1rem;
+  gap: 1.25rem;
   overflow-x: auto;
+  scrollbar-width: none; /* Hide default scrollbar Firefox */
   padding-bottom: 0.5rem;
-  scrollbar-width: thin;
+  scroll-behavior: smooth;
+  width: 100%;
 }
 
 .shorts-widget__scroll-container::-webkit-scrollbar {
-  height: 6px;
+  display: none; /* Hide scrollbar Chrome/Safari */
 }
 
-.shorts-widget__scroll-container::-webkit-scrollbar-thumb {
-  background-color: var(--border-color);
-  border-radius: 4px;
+/* Premium Universal Carousel Navigation Buttons */
+.carousel-nav-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 10;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.96);
+  border: 1px solid var(--border-color);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text-primary);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.carousel-nav-btn:hover {
+  background-color: var(--accent-orange);
+  color: #fff;
+  border-color: var(--accent-orange);
+  transform: translateY(-50%) scale(1.08);
+  box-shadow: 0 6px 16px rgba(249, 115, 22, 0.35);
+}
+
+.carousel-nav-btn.left {
+  left: -22px;
+}
+
+.carousel-nav-btn.right {
+  right: -22px;
+}
+
+/* Responsive adjustment */
+@media (max-width: 768px) {
+  .carousel-nav-btn {
+    width: 36px;
+    height: 36px;
+  }
+  .carousel-nav-btn.left {
+    left: -10px;
+  }
+  .carousel-nav-btn.right {
+    right: -10px;
+  }
 }
 
 .shorts-card {

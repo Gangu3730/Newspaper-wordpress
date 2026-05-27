@@ -48,6 +48,14 @@ const MainLayout = () => {
   const [isDesktopSearchOpen, setIsDesktopSearchOpen] = useState(false);
   
   const scrollContainerRef = useRef(null);
+  const [menuScrollable, setMenuScrollable] = useState(false);
+
+  const checkMenuScrollable = () => {
+    if (scrollContainerRef.current) {
+      const { scrollWidth, clientWidth } = scrollContainerRef.current;
+      setMenuScrollable(scrollWidth > clientWidth);
+    }
+  };
 
   const scrollMenu = (direction) => {
     if (scrollContainerRef.current) {
@@ -58,6 +66,16 @@ const MainLayout = () => {
       });
     }
   };
+
+  useEffect(() => {
+    checkMenuScrollable();
+    const timer = setTimeout(checkMenuScrollable, 250);
+    window.addEventListener('resize', checkMenuScrollable);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('resize', checkMenuScrollable);
+    };
+  }, [menuItems, categories]);
 
   useEffect(() => {
     // Apply theme
@@ -173,7 +191,6 @@ const MainLayout = () => {
               </a>
             </div>
             <span className="top-bar__sep" style={{ marginRight: '12px' }}>|</span>
-            <Link to="/">ई-पेपर</Link>
             <button 
               onClick={toggleTheme} 
               className="theme-toggle-btn" 
@@ -192,7 +209,6 @@ const MainLayout = () => {
                 </>
               )}
             </button>
-            <Link to="/admin">एडमिन लॉगिन</Link>
           </div>
         </div>
       </div>
@@ -311,9 +327,11 @@ const MainLayout = () => {
         <div className="container nav-menu__container">
           
           <div className="nav-scroll-wrapper">
-            <button className="nav-scroll-btn left-btn" onClick={() => scrollMenu('left')} aria-label="Scroll Left">
-              <ChevronLeft size={20} />
-            </button>
+            {menuScrollable && (
+              <button className="nav-scroll-btn left-btn" onClick={() => scrollMenu('left')} aria-label="Scroll Left">
+                <ChevronLeft size={20} />
+              </button>
+            )}
             
             <ul className="nav-menu__list" ref={scrollContainerRef}>
               {menuItems.map(item => {
@@ -338,9 +356,11 @@ const MainLayout = () => {
               })}
             </ul>
 
-            <button className="nav-scroll-btn right-btn" onClick={() => scrollMenu('right')} aria-label="Scroll Right">
-              <ChevronRight size={20} />
-            </button>
+            {menuScrollable && (
+              <button className="nav-scroll-btn right-btn" onClick={() => scrollMenu('right')} aria-label="Scroll Right">
+                <ChevronRight size={20} />
+              </button>
+            )}
           </div>
           
           <div className="desktop-search-wrapper">
@@ -503,14 +523,7 @@ const MainLayout = () => {
                 <button type="submit" className="newsletter-submit">जुड़ें</button>
               </form>
             )}
-            
-            <div className="footer-app-badges">
-              <span className="app-badges-title">हमारा ऐप डाउनलोड करें</span>
-              <div className="app-buttons">
-                <a href="#" className="app-btn-google">Play Store</a>
-                <a href="#" className="app-btn-apple">App Store</a>
-              </div>
-            </div>
+
           </div>
         </div>
 
@@ -551,8 +564,6 @@ const MainLayout = () => {
               <Link to="/privacy">गोपनीयता नीति</Link>
               <span>•</span>
               <Link to="/contact">नियम और शर्तें</Link>
-              <span>•</span>
-              <Link to="/admin">CMS डैशबोर्ड</Link>
             </div>
           </div>
         </div>

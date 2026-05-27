@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import wpService from '../services/wpService';
 import BreakingTicker from '../components/news/BreakingTicker';
 import NewsCard from '../components/news/NewsCard';
@@ -47,8 +48,45 @@ const politicalEyeShowVideos = [
   }
 ];
 
+const fallbackPremiumNews = [
+  {
+    id: 'p1',
+    title: 'बिहार में जल संकट: क्या इस बार मानसून बचा पाएगा पटना को सूखने से?',
+    slug: 'bihar-water-crisis-monsoon-patna',
+    category: 'Opinion'
+  },
+  {
+    id: 'p2',
+    title: 'चुनावी समीकरण और सोशल मीडिया का असर: कितना बदला भारतीय राजनीति का चेहरा?',
+    slug: 'election-equations-social-media-indian-politics',
+    category: 'Analysis'
+  },
+  {
+    id: 'p3',
+    title: 'आर्थिक विकास की हकीकत: जमीनी स्तर पर कितनी मजबूत है देश की जीडीपी ग्रोथ?',
+    slug: 'economic-growth-reality-gdp-india',
+    category: 'Editorial'
+  },
+  {
+    id: 'p4',
+    title: 'अध्यात्म और विज्ञान: जब प्राचीन वैदिक परंपराओं से मिले आधुनिक वैज्ञानिक तथ्य',
+    slug: 'spirituality-science-ancient-vedic-traditions',
+    category: 'Religion & Science'
+  }
+];
+
 const Home = () => {
   const [categories, setCategories] = useState([]);
+  const videoScrollContainerRef = useRef(null);
+  const [videosScrollable, setVideosScrollable] = useState(false);
+
+  const scrollVideos = (direction) => {
+    if (videoScrollContainerRef.current) {
+      const scrollAmount = direction === 'left' ? -340 : 340;
+      videoScrollContainerRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+    }
+  };
+
   const [selectedCategory, setSelectedCategory] = useState(null);
 
   // Section states
@@ -82,17 +120,18 @@ const Home = () => {
   const [govtSchemes, setGovtSchemes] = useState([]);
 
   const [shortsData, setShortsData] = useState([]);
+  const [youtubeVideos, setYoutubeVideos] = useState([]);
   const [newsSnapData, setNewsSnapData] = useState([]);
   const [ads, setAds] = useState([]);
 
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [activeVideoId, setActiveVideoId] = useState(null);
 
   useEffect(() => {
     wpService.getCategories()
       .then(data => setCategories(data))
-      .catch(err => console.error('Error fetching categories:', err));
+      .catch(err => { /* Silent fallback */ });
       
     // Fetch ads
     const cachedAds = sessionStorage.getItem('news_ads');
@@ -102,7 +141,19 @@ const Home = () => {
         setAds(data);
         sessionStorage.setItem('news_ads', JSON.stringify(data));
       })
-      .catch(err => console.error('Error fetching ads:', err));
+      .catch(err => { /* Silent fallback */ });
+
+    // Fetch live YouTube videos & shorts
+    wpService.getYoutubeData()
+      .then(data => {
+        if (data.shorts && data.shorts.length > 0) {
+          setShortsData(data.shorts);
+        }
+        if (data.videos && data.videos.length > 0) {
+          setYoutubeVideos(data.videos);
+        }
+      })
+      .catch(err => { /* Silent fallback */ });
   }, []);
 
   useEffect(() => {
@@ -110,88 +161,91 @@ const Home = () => {
     if (selectedCategory) return;
 
     let mounted = true;
-    setLoading(true);
     setError(null);
 
-    // Fetch main news streams in parallel
-    const homePromise = wpService.getPosts({ perPage: 15 });
-    const biharPromise = wpService.getPosts({ categorySlug: 'bihar', perPage: 4 });
-    const jharkhandPromise = wpService.getPosts({ categorySlug: 'jharkhand', perPage: 4 });
-    const nationalPromise = wpService.getPosts({ categorySlug: 'national', perPage: 4 });
-    const internationalPromise = wpService.getPosts({ categorySlug: 'international', perPage: 4 });
-    const entertainmentPromise = wpService.getPosts({ categorySlug: 'entertainment', perPage: 4 });
-    const religionPromise = wpService.getPosts({ categorySlug: 'religion', perPage: 4 });
-    const sportsPromise = wpService.getPosts({ categorySlug: 'sports', perPage: 4 });
-    const careerPromise = wpService.getPosts({ categorySlug: 'career', perPage: 4 });
-    const lifestylePromise = wpService.getPosts({ categorySlug: 'lifestyle', perPage: 4 });
-    const videoPromise = wpService.getPosts({ categorySlug: 'video', perPage: 4 });
-    const techPromise = wpService.getPosts({ categorySlug: 'technology', perPage: 4 });
-    const autoPromise = wpService.getPosts({ categorySlug: 'automobile', perPage: 4 });
-    const businessPromise = wpService.getPosts({ categorySlug: 'business', perPage: 4 });
-    const astrologyPromise = wpService.getPosts({ categorySlug: 'astrology', perPage: 4 });
-    const premiumPromise = wpService.getPosts({ categorySlug: 'premium', perPage: 4 });
-    const schemesPromise = wpService.getPosts({ categorySlug: 'schemes', perPage: 4 });
-    
-    // New specific endpoints for widgets
-    const shortsPromise = wpService.getShorts({ perPage: 6 });
-    const newsSnapPromise = wpService.getPosts({ tagSlug: 'news-snap', perPage: 3 });
+    // Fetch main news streams in parallel, updating state individually the millisecond they resolve
+    wpService.getPosts({ perPage: 15 }).then(res => {
+      if (!mounted || !res.data) return;
+      const all = res.data;
+      setBreakingNews(all.filter(p => p.is_breaking));
+      setHeroArticle(all.find(p => p.is_sticky) || all[0] || null);
+      setTrendingArticles(all.filter(p => p.is_trending));
+      setRegularArticles(all.filter(p => p.id !== (all.find(p => p.is_sticky) || all[0])?.id));
+    }).catch(err => {
+      if (mounted) setError('मुख्य खबरें लोड करने में त्रुटि हुई।');
+    });
 
-    Promise.allSettled([
-      homePromise, biharPromise, jharkhandPromise, nationalPromise, 
-      internationalPromise, entertainmentPromise, religionPromise, 
-      sportsPromise, careerPromise, lifestylePromise, videoPromise,
-      techPromise, autoPromise, businessPromise, astrologyPromise, premiumPromise, schemesPromise,
-      shortsPromise, newsSnapPromise
-    ])
-      .then(results => {
-        if (!mounted) return;
+    wpService.getPosts({ categorySlug: 'bihar', perPage: 4 }).then(res => {
+      if (mounted) setBiharNews(res.data || []);
+    }).catch(() => {});
 
-        const [
-          homeRes, bRes, jhRes, natRes, intRes, eRes, rRes, spRes, carRes, lfRes, vRes,
-          techRes, autoRes, busRes, astroRes, premRes, schemeRes,
-          shortsRes, snapRes
-        ] = results;
+    wpService.getPosts({ categorySlug: 'jharkhand', perPage: 4 }).then(res => {
+      if (mounted) setJharkhandNews(res.data || []);
+    }).catch(() => {});
 
-        if (homeRes.status === 'fulfilled') {
-          const all = homeRes.value.data || [];
-          setBreakingNews(all.filter(p => p.is_breaking));
-          setHeroArticle(all.find(p => p.is_sticky) || all[0] || null);
-          setTrendingArticles(all.filter(p => p.is_trending));
-          setRegularArticles(all.filter(p => p.id !== (all.find(p => p.is_sticky) || all[0])?.id));
-        } else {
-          console.error('Failed to fetch main posts:', homeRes.reason);
-          setError('मुख्य खबरें लोड करने में त्रुटि हुई।');
-        }
+    wpService.getPosts({ categorySlug: 'national', perPage: 4 }).then(res => {
+      if (mounted) setNationalNews(res.data || []);
+    }).catch(() => {});
 
-        if (bRes.status === 'fulfilled') setBiharNews(bRes.value.data || []);
-        if (jhRes.status === 'fulfilled') setJharkhandNews(jhRes.value.data || []);
-        if (natRes.status === 'fulfilled') setNationalNews(natRes.value.data || []);
-        if (intRes.status === 'fulfilled') setInternationalNews(intRes.value.data || []);
-        if (eRes.status === 'fulfilled') setEntertainmentNews(eRes.value.data || []);
-        if (rRes.status === 'fulfilled') setReligionNews(rRes.value.data || []);
-        if (spRes.status === 'fulfilled') setSportsNews(spRes.value.data || []);
-        if (carRes.status === 'fulfilled') setCareerNews(carRes.value.data || []);
-        if (lfRes.status === 'fulfilled') setLifestyleNews(lfRes.value.data || []);
-        if (vRes.status === 'fulfilled') setVideoNews(vRes.value.data || []);
-        
-        // Extended categories, fallback to generic home news if empty to simulate content
-        const genericFallback = homeRes.status === 'fulfilled' ? homeRes.value.data || [] : [];
-        if (techRes.status === 'fulfilled' && techRes.value.data?.length > 0) setTechNews(techRes.value.data); else setTechNews(genericFallback.slice(0, 4));
-        if (autoRes.status === 'fulfilled' && autoRes.value.data?.length > 0) setAutoNews(autoRes.value.data); else setAutoNews(genericFallback.slice(1, 5));
-        if (busRes.status === 'fulfilled' && busRes.value.data?.length > 0) setBusinessNews(busRes.value.data); else setBusinessNews(genericFallback.slice(2, 6));
-        if (astroRes.status === 'fulfilled' && astroRes.value.data?.length > 0) setAstrologyNews(astroRes.value.data); else setAstrologyNews(genericFallback.slice(3, 7));
-        if (premRes.status === 'fulfilled' && premRes.value.data?.length > 0) setPremiumNews(premRes.value.data); else setPremiumNews(genericFallback.slice(4, 8));
-        if (schemeRes.status === 'fulfilled' && schemeRes.value.data?.length > 0) setGovtSchemes(schemeRes.value.data); else setGovtSchemes(genericFallback.slice(0, 4));
+    wpService.getPosts({ categorySlug: 'international', perPage: 4 }).then(res => {
+      if (mounted) setInternationalNews(res.data || []);
+    }).catch(() => {});
 
-        // Widgets specific data
-        if (shortsRes.status === 'fulfilled') setShortsData(shortsRes.value || []);
-        if (snapRes.status === 'fulfilled') setNewsSnapData(snapRes.value.data || []);
-      })
-      .catch(err => {
-        console.error('Error loading homepage sections:', err);
-        setError('होमपेज लोड करने में त्रुटि हुई।');
-      })
-      .finally(() => mounted && setLoading(false));
+    wpService.getPosts({ categorySlug: 'entertainment', perPage: 4 }).then(res => {
+      if (mounted) setEntertainmentNews(res.data || []);
+    }).catch(() => {});
+
+    wpService.getPosts({ categorySlug: 'religion', perPage: 4 }).then(res => {
+      if (mounted) setReligionNews(res.data || []);
+    }).catch(() => {});
+
+    wpService.getPosts({ categorySlug: 'sports', perPage: 4 }).then(res => {
+      if (mounted) setSportsNews(res.data || []);
+    }).catch(() => {});
+
+    wpService.getPosts({ categorySlug: 'career', perPage: 4 }).then(res => {
+      if (mounted) setCareerNews(res.data || []);
+    }).catch(() => {});
+
+    wpService.getPosts({ categorySlug: 'lifestyle', perPage: 4 }).then(res => {
+      if (mounted) setLifestyleNews(res.data || []);
+    }).catch(() => {});
+
+    wpService.getPosts({ categorySlug: 'video', perPage: 4 }).then(res => {
+      if (mounted) setVideoNews(res.data || []);
+    }).catch(() => {});
+
+    wpService.getPosts({ categorySlug: 'technology', perPage: 4 }).then(res => {
+      if (mounted) setTechNews(res.data || []);
+    }).catch(() => {});
+
+    wpService.getPosts({ categorySlug: 'automobile', perPage: 4 }).then(res => {
+      if (mounted) setAutoNews(res.data || []);
+    }).catch(() => {});
+
+    wpService.getPosts({ categorySlug: 'business', perPage: 4 }).then(res => {
+      if (mounted) setBusinessNews(res.data || []);
+    }).catch(() => {});
+
+    wpService.getPosts({ categorySlug: 'astrology', perPage: 4 }).then(res => {
+      if (mounted) setAstrologyNews(res.data || []);
+    }).catch(() => {});
+
+    wpService.getPosts({ categorySlug: 'premium', perPage: 4 }).then(res => {
+      if (mounted) setPremiumNews(res.data || []);
+    }).catch(() => {});
+
+    wpService.getPosts({ categorySlug: 'schemes', perPage: 4 }).then(res => {
+      if (mounted) setGovtSchemes(res.data || []);
+    }).catch(() => {});
+
+    wpService.getShorts({ perPage: 6 }).then(res => {
+      if (mounted) setShortsData(prev => prev && prev.length > 0 ? prev : (res || []));
+    }).catch(() => {});
+
+    wpService.getPosts({ tagSlug: 'news-snap', perPage: 3 }).then(res => {
+      if (mounted) setNewsSnapData(res.data || []);
+    }).catch(() => {});
 
     return () => { mounted = false; };
   }, [selectedCategory]);
@@ -205,46 +259,89 @@ const Home = () => {
     wpService.getPosts({ categorySlug: selectedCategory, perPage: 12 })
       .then(res => setCategoryNews(res.data || []))
       .catch(err => {
-        console.error('Error fetching category posts:', err);
+        // Silent fallback
         setError('इस श्रेणी की खबरें लोड करने में असमर्थ।');
       })
       .finally(() => setLoading(false));
   }, [selectedCategory]);
 
-  const displayVideos = videoNews && videoNews.length > 0 
-    ? videoNews.map(item => ({
-        id: item.id,
-        title: item.title,
-        youtube_id: item.acf?.youtube_id || item.acf?.youtube_video_id || '8v9GqEszZ-E',
-        thumbnail: item.featured_image || 'https://images.unsplash.com/photo-1541872703-74c5e44368f9?w=800&q=80',
-        views: item.views ? item.views.toLocaleString() + ' views' : '350K views',
-        duration: item.acf?.duration || '12:00'
-      }))
-    : politicalEyeShowVideos;
+  const displayVideos = youtubeVideos && youtubeVideos.length > 0 
+    ? youtubeVideos 
+    : (videoNews && videoNews.length > 0 
+        ? videoNews.map(item => ({
+            id: item.id,
+            title: item.title,
+            youtube_id: item.acf?.youtube_id || item.acf?.youtube_video_id || '8v9GqEszZ-E',
+            thumbnail: item.featured_image || 'https://images.unsplash.com/photo-1541872703-74c5e44368f9?w=800&q=80',
+            views: item.views ? item.views.toLocaleString() + ' views' : '350K views',
+            duration: item.acf?.duration || '12:00'
+          }))
+        : []);
+
+  const getFallbackArticles = (list, startIndex, count) => {
+    if (!list || list.length === 0) return [];
+    const slice = list.slice(startIndex, startIndex + count);
+    return slice.length > 0 ? slice : list.slice(0, count);
+  };
+
+  const displayTechNews = techNews && techNews.length > 0 
+    ? techNews 
+    : getFallbackArticles(regularArticles, 0, 3);
+
+  const displayAutoNews = autoNews && autoNews.length > 0 
+    ? autoNews 
+    : getFallbackArticles(regularArticles, 1, 3);
+
+  const displayNewsSnap = newsSnapData && newsSnapData.length > 0 
+    ? newsSnapData 
+    : getFallbackArticles(regularArticles, 2, 3);
+
+  const displayNationalNews = nationalNews && nationalNews.length > 0 
+    ? nationalNews 
+    : getFallbackArticles(regularArticles, 3, 3);
+
+  const checkVideosScrollable = () => {
+    if (videoScrollContainerRef.current) {
+      const { scrollWidth, clientWidth } = videoScrollContainerRef.current;
+      setVideosScrollable(scrollWidth > clientWidth);
+    }
+  };
+
+  useEffect(() => {
+    checkVideosScrollable();
+    const timer = setTimeout(checkVideosScrollable, 250);
+    window.addEventListener('resize', checkVideosScrollable);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('resize', checkVideosScrollable);
+    };
+  }, [displayVideos]);
 
   return (
     <div className="home-page">
       {breakingNews.length > 0 && <BreakingTicker news={breakingNews} />}
 
       <div className="container home-page__layout">
-        {loading ? (
-          <div className="skeleton-grid">
-            <div className="skeleton-card skeleton-card--hero"></div>
-            <div className="skeleton-card"></div>
-            <div className="skeleton-card"></div>
-            <div className="skeleton-card"></div>
-          </div>
-        ) : error ? (
+        {error ? (
           <div className="error-message">{error}</div>
         ) : selectedCategory ? (
-          <div className="category-view">
-            <h2 className="section-title">{categories.find(c => c.slug === selectedCategory)?.name || selectedCategory}</h2>
-            <div className="articles-grid">
-              {categoryNews.map(article => (
-                <NewsCard key={article.id} article={article} variant="standard" />
-              ))}
+          loading ? (
+            <div className="skeleton-grid">
+              <div className="skeleton-card skeleton-card--hero"></div>
+              <div className="skeleton-card"></div>
+              <div className="skeleton-card"></div>
+              <div className="skeleton-card"></div>
             </div>
-          </div>
+          ) : (
+            <div className="category-view">
+              <h2 className="section-title">{categories.find(c => c.slug === selectedCategory)?.name || selectedCategory}</h2>
+              <div className="articles-grid">
+                {categoryNews.map(article => (
+                  <NewsCard key={article.id} article={article} variant="standard" />
+                ))}
+              </div>
+            </div>
+          )
         ) : (
           <div className="homepage-sections">
             {/* Hero Ad Banner */}
@@ -283,16 +380,22 @@ const Home = () => {
                 <SidebarWeatherWidget />
                 
                 <div className="premium-sidebar">
-                  <h3 className="premium-sidebar__title">प्रभात खबर प्रीमियम</h3>
+                  <h3 className="premium-sidebar__title">ताज़ा खबर</h3>
                   <div className="premium-sidebar__list">
-                    {premiumNews.slice(0, 3).map(article => (
-                      <div key={article.id} className="premium-item">
-                        <h4 className="premium-item__title">
-                          <Link to={`/news/${article.slug}`}>{article.title}</Link>
-                        </h4>
-                        <span className="premium-item__cat">Opinion &gt;</span>
-                      </div>
-                    ))}
+                    {regularArticles.length === 0 ? (
+                      [1, 2, 3, 4].map(n => (
+                        <div key={n} style={{ height: '48px', backgroundColor: 'rgba(0,0,0,0.05)', borderRadius: '6px', marginBottom: '12px', animation: 'pulse 1.5s infinite' }}></div>
+                      ))
+                    ) : (
+                      regularArticles.slice(0, 4).map(article => (
+                        <div key={article.id} className="premium-item">
+                          <h4 className="premium-item__title">
+                            <Link to={`/news/${article.slug}`}>{article.title}</Link>
+                          </h4>
+                          <span className="premium-item__cat">{(article.category?.name || article.category || 'ताज़ा खबर') + ' >'}</span>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </div>
               </aside>
@@ -304,53 +407,77 @@ const Home = () => {
                 </div>
                 
                 <div className="main-editorial">
-                  {heroArticle && <NewsCard article={heroArticle} variant="hero" />}
+                  {!heroArticle ? (
+                    <div style={{ height: '365px', backgroundColor: 'rgba(0,0,0,0.05)', borderRadius: '12px', animation: 'pulse 1.5s infinite' }}></div>
+                  ) : (
+                    <NewsCard article={heroArticle} variant="hero" />
+                  )}
                 </div>
 
                 {/* News Snap Block inside main column */}
-                {newsSnapData.length > 0 && (
-                  <div className="news-snap-wrapper">
-                    <NewsSnapWidget articles={newsSnapData} />
-                    <div className="snap-side-news">
-                      {nationalNews.slice(0, 3).map(article => (
+                <div className="news-snap-wrapper">
+                  {displayNewsSnap.length === 0 ? (
+                    <div style={{ height: '240px', backgroundColor: 'rgba(0,0,0,0.05)', borderRadius: '12px', animation: 'pulse 1.5s infinite' }}></div>
+                  ) : (
+                    <NewsSnapWidget articles={displayNewsSnap} />
+                  )}
+                  <div className="snap-side-news">
+                    {displayNationalNews.length === 0 ? (
+                      [1, 2, 3].map(n => (
+                        <div key={n} style={{ height: '76px', backgroundColor: 'rgba(0,0,0,0.05)', borderRadius: '6px', marginBottom: '10px', animation: 'pulse 1.5s infinite' }}></div>
+                      ))
+                    ) : (
+                      displayNationalNews.slice(0, 3).map(article => (
                         <NewsCard key={article.id} article={article} variant="standard" />
-                      ))}
-                    </div>
+                      ))
+                    )}
                   </div>
-                )}
+                </div>
 
                 {/* Additional Grids */}
                 <div className="editorial-split-grid">
                   <div className="split-column">
                     <div className="section-header"><h2 className="section-header__title">टेक</h2></div>
                     <div className="split-column__items">
-                      {techNews.slice(0, 3).map(article => (
-                        <div key={article.id} className="editorial-row-card">
-                          <div className="row-card__img-wrapper">
-                            <img src={article.featured_image} alt="" className="row-card__img-blur" aria-hidden="true" />
-                            <img src={article.featured_image} alt={article.title} className="row-card__img" />
+                      {displayTechNews.length === 0 ? (
+                        [1, 2, 3].map(n => (
+                          <div key={n} style={{ height: '70px', backgroundColor: 'rgba(0,0,0,0.05)', borderRadius: '6px', marginBottom: '10px', animation: 'pulse 1.5s infinite' }}></div>
+                        ))
+                      ) : (
+                        displayTechNews.slice(0, 3).map(article => (
+                          <div key={article.id} className="editorial-row-card">
+                            <div className="row-card__img-wrapper">
+                              <img src={article.featured_image} alt="" className="row-card__img-blur" aria-hidden="true" />
+                              <img src={article.featured_image} alt={article.title} className="row-card__img" />
+                            </div>
+                            <div className="row-card__body">
+                              <h4 className="row-card__title"><Link to={`/news/${article.slug}`}>{article.title}</Link></h4>
+                            </div>
                           </div>
-                          <div className="row-card__body">
-                            <h4 className="row-card__title"><Link to={`/news/${article.slug}`}>{article.title}</Link></h4>
-                          </div>
-                        </div>
-                      ))}
+                        ))
+                      )}
                     </div>
                   </div>
                   <div className="split-column">
                     <div className="section-header"><h2 className="section-header__title">ऑटो</h2></div>
                     <div className="split-column__items">
-                      {autoNews.slice(0, 3).map(article => (
-                        <div key={article.id} className="editorial-row-card">
-                          <div className="row-card__img-wrapper">
-                            <img src={article.featured_image} alt="" className="row-card__img-blur" aria-hidden="true" />
-                            <img src={article.featured_image} alt={article.title} className="row-card__img" />
+                      {displayAutoNews.length === 0 ? (
+                        [1, 2, 3].map(n => (
+                          <div key={n} style={{ height: '70px', backgroundColor: 'rgba(0,0,0,0.05)', borderRadius: '6px', marginBottom: '10px', animation: 'pulse 1.5s infinite' }}></div>
+                        ))
+                      ) : (
+                        displayAutoNews.slice(0, 3).map(article => (
+                          <div key={article.id} className="editorial-row-card">
+                            <div className="row-card__img-wrapper">
+                              <img src={article.featured_image} alt="" className="row-card__img-blur" aria-hidden="true" />
+                              <img src={article.featured_image} alt={article.title} className="row-card__img" />
+                            </div>
+                            <div className="row-card__body">
+                              <h4 className="row-card__title"><Link to={`/news/${article.slug}`}>{article.title}</Link></h4>
+                            </div>
                           </div>
-                          <div className="row-card__body">
-                            <h4 className="row-card__title"><Link to={`/news/${article.slug}`}>{article.title}</Link></h4>
-                          </div>
-                        </div>
-                      ))}
+                        ))
+                      )}
                     </div>
                   </div>
                 </div>
@@ -390,33 +517,62 @@ const Home = () => {
                     YouTube चैनल पर जाएं &gt;
                   </a>
                 </div>
-                <div className="video-grid">
-                  {displayVideos.slice(0, 4).map(video => (
-                    <div 
-                      key={video.id} 
-                      className="video-card" 
-                      onClick={() => setActiveVideoId(video.youtube_id)}
-                      style={{ cursor: 'pointer' }}
+                
+                <div className="video-carousel-wrapper" style={{ position: 'relative' }}>
+                  {videosScrollable && (
+                    <button 
+                      className="carousel-nav-btn left dark" 
+                      onClick={() => scrollVideos('left')}
+                      aria-label="Scroll Left"
                     >
-                      <div className="video-card__thumbnail">
-                        <img src={video.thumbnail} alt={video.title} />
-                        <span className="video-card__duration" style={{ position: 'absolute', bottom: '8px', right: '8px', backgroundColor: 'rgba(0,0,0,0.8)', color: '#fff', padding: '2px 6px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold' }}>{video.duration}</span>
-                        <div className="video-card__play-btn">
-                          <svg viewBox="0 0 24 24" width="22" height="22" fill="white">
-                            <path d="M8 5v14l11-7z" />
-                          </svg>
+                      <ChevronLeft size={24} />
+                    </button>
+                  )}
+                  
+                  <div className="video-grid" ref={videoScrollContainerRef}>
+                    {displayVideos.length === 0 ? (
+                      [1, 2, 3, 4].map(n => (
+                        <div key={n} className="video-card skeleton" style={{ minWidth: '280px', height: '220px', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '8px', animation: 'pulse 1.5s infinite' }}></div>
+                      ))
+                    ) : (
+                      displayVideos.map(video => (
+                        <div 
+                          key={video.id} 
+                          className="video-card" 
+                          onClick={() => setActiveVideoId(video.youtube_id)}
+                          style={{ cursor: 'pointer' }}
+                        >
+                          <div className="video-card__thumbnail">
+                            <img src={video.thumbnail} alt={video.title} />
+                            <span className="video-card__duration" style={{ position: 'absolute', bottom: '8px', right: '8px', backgroundColor: 'rgba(0,0,0,0.8)', color: '#fff', padding: '2px 6px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold' }}>{video.duration}</span>
+                            <div className="video-card__play-btn">
+                              <svg viewBox="0 0 24 24" width="22" height="22" fill="white">
+                                <path d="M8 5v14l11-7z" />
+                              </svg>
+                            </div>
+                          </div>
+                          <div className="video-card__info" style={{ padding: '12px 0 0 0' }}>
+                            <h4 className="video-card__title" style={{ fontSize: '1.05rem', color: '#ffffff', lineHeight: '1.45', margin: '0 0 6px 0', fontWeight: '600' }}>
+                              {video.title}
+                            </h4>
+                            <span className="video-card__views" style={{ fontSize: '0.825rem', color: '#a3a3a3' }}>
+                              {video.views}
+                            </span>
+                          </div>
                         </div>
-                      </div>
-                      <div className="video-card__info" style={{ padding: '12px 0 0 0' }}>
-                        <h4 className="video-card__title" style={{ fontSize: '1rem', color: '#ffffff', lineHeight: '1.4', margin: '0 0 6px 0', fontWeight: '600' }}>
-                          {video.title}
-                        </h4>
-                        <span className="video-card__views" style={{ fontSize: '0.8rem', color: '#a3a3a3' }}>
-                          {video.views}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
+                      ))
+                    )}
+                  </div>
+                  
+                  {videosScrollable && (
+                    <button 
+                      className="carousel-nav-btn right dark" 
+                      onClick={() => scrollVideos('right')}
+                      aria-label="Scroll Right"
+                    >
+                      <ChevronRight size={24} />
+                    </button>
+                  )}
                 </div>
               </div>
             </section>

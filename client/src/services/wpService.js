@@ -60,6 +60,37 @@ const stripHtml = (html) => {
 };
 
 /**
+ * Parses ISO 8601 duration string (e.g. PT10M15S) to human readable MM:SS format
+ */
+const parseISO8601Duration = (duration) => {
+  if (!duration) return '0:00';
+  const match = duration.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+  if (!match) return '0:00';
+  const hours = (parseInt(match[1]) || 0);
+  const minutes = (parseInt(match[2]) || 0);
+  const seconds = (parseInt(match[3]) || 0);
+  
+  if (hours > 0) {
+    return `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  }
+  return `${minutes}:${String(seconds).padStart(2, '0')}`;
+};
+
+/**
+ * Formats numeric views count into a cleaner format like K or M
+ */
+const formatViews = (views) => {
+  const count = parseInt(views) || 0;
+  if (count >= 1000000) {
+    return (count / 1000000).toFixed(1) + 'M';
+  }
+  if (count >= 1000) {
+    return (count / 1000).toFixed(1) + 'K';
+  }
+  return count.toString();
+};
+
+/**
  * Extracts and maps featured image from the embedded media array in WP REST response.
  */
 const getFeaturedImage = (post) => {
@@ -164,11 +195,46 @@ export const mapWordPressPost = (post) => {
   };
 };
 
+// High-Performance In-Memory Query Resolvers
+const categorySlugIdMap = {};
+const tagSlugIdMap = {};
+const citySlugIdMap = {};
+
+// SWR Session Caching Wrapper
+const swrCache = {
+  get(key) {
+    try {
+      const item = sessionStorage.getItem(key);
+      return item ? JSON.parse(item) : null;
+    } catch (e) {
+      return null;
+    }
+  },
+  set(key, value) {
+    try {
+      sessionStorage.setItem(key, JSON.stringify(value));
+    } catch (e) {}
+  }
+};
+
 const wpService = {
   /**
    * Fetches all categories directly from the WordPress REST API and maps encoding slugs.
    */
   async getCategories() {
+    const cacheKey = 'wp_categories';
+    const cached = swrCache.get(cacheKey);
+    if (cached) {
+      // Revalidate in the background
+      setTimeout(() => {
+        this.fetchAndCacheCategories(cacheKey).catch(() => {});
+      }, 50);
+      return cached;
+    }
+    return this.fetchAndCacheCategories(cacheKey);
+  },
+
+  async fetchAndCacheCategories(cacheKey) {
     try {
       const response = await axios.get(`${WP_API_URL}/wp/v2/categories?per_page=100&_cb=${Date.now()}`, { timeout: 8000 });
       let cats = response.data.map(cat => {
@@ -185,6 +251,7 @@ const wpService = {
         cats = cats.filter(c => c.slug !== 'uncategorized');
       }
 
+      swrCache.set(cacheKey, cats);
       return cats;
     } catch (error) {
       console.error('Error fetching WordPress categories:', error.message);
@@ -196,21 +263,52 @@ const wpService = {
    * Fetches cities from custom taxonomy from WP REST API.
    */
   async getCities() {
+    const cacheKey = 'wp_cities';
+    const cached = swrCache.get(cacheKey);
+    if (cached) {
+      setTimeout(() => {
+        this.fetchAndCacheCities(cacheKey).catch(() => {});
+      }, 50);
+      return cached;
+    }
+    return this.fetchAndCacheCities(cacheKey);
+  },
+
+  async fetchAndCacheCities(cacheKey) {
     try {
       const response = await axios.get(`${WP_API_URL}/wp/v2/cities?per_page=20&_cb=${Date.now()}`, { timeout: 5000 });
       if (response.data && response.data.length > 0) {
-        return ['All', ...response.data.map(c => c.name)];
+        const citiesList = ['All', ...response.data.map(c => c.name)];
+        swrCache.set(cacheKey, citiesList);
+        return citiesList;
       }
     } catch (e) {
       console.warn('Could not fetch cities taxonomy from WP, using fallback');
     }
-    return ['All', 'रांची', 'पटना', 'दिल्ली', 'जमशेदपुर', 'कोलकाता', 'मुजफ्फरपुर', 'भागलपुर', 'धनबाद', 'देवघर'];
+    const defaultCities = ['All', 'रांची', 'पटना', 'दिल्ली', 'जमशेदपुर', 'कोलकाता', 'मुजफ्फरपुर', 'भागलपुर', 'धनबाद', 'देवघर'];
+    swrCache.set(cacheKey, defaultCities);
+    return defaultCities;
   },
 
   /**
    * Fetches posts directly from the WordPress REST API with dynamic slug translation.
    */
   async getPosts(options = {}) {
+    const { categorySlug, tagSlug, city, page = 1, perPage = 10, search = '' } = options;
+    const cacheKey = `wp_posts_${categorySlug || ''}_${tagSlug || ''}_${city || ''}_${page}_${perPage}_${search}`;
+
+    const cached = swrCache.get(cacheKey);
+    if (cached) {
+      // Revalidate in the background silently
+      setTimeout(() => {
+        this.fetchAndCachePosts(options, cacheKey).catch(() => {});
+      }, 50);
+      return cached;
+    }
+    return this.fetchAndCachePosts(options, cacheKey);
+  },
+
+  async fetchAndCachePosts(options, cacheKey) {
     const { categorySlug, tagSlug, city, page = 1, perPage = 10, search = '' } = options;
     
     try {
@@ -226,43 +324,62 @@ const wpService = {
         params.search = search;
       }
 
-      // Handle Tag Filtering
+      // Handle Tag Filtering (using in-memory slug lookup cache)
       if (tagSlug) {
-        try {
-          const tagsResponse = await axios.get(`${WP_API_URL}/wp/v2/tags?slug=${tagSlug}&_cb=${Date.now()}`);
-          if (tagsResponse.data && tagsResponse.data.length > 0) {
-            params.tags = tagsResponse.data[0].id;
+        if (tagSlugIdMap[tagSlug]) {
+          params.tags = tagSlugIdMap[tagSlug];
+        } else {
+          try {
+            const tagsResponse = await axios.get(`${WP_API_URL}/wp/v2/tags?slug=${tagSlug}&_cb=${Date.now()}`);
+            if (tagsResponse.data && tagsResponse.data.length > 0) {
+              const tagId = tagsResponse.data[0].id;
+              tagSlugIdMap[tagSlug] = tagId;
+              params.tags = tagId;
+            }
+          } catch (e) {
+            console.warn(`Could not resolve tag slug: ${tagSlug}`);
           }
-        } catch (e) {
-          console.warn(`Could not resolve tag slug: ${tagSlug}`);
         }
       }
 
-      // Handle Custom Taxonomy Filtering (Cities)
+      // Handle Custom Taxonomy Filtering (Cities) (using in-memory lookup cache)
       if (city && city !== 'All') {
-        try {
-          // Assuming the custom taxonomy rest_base is 'cities'
-          const citiesResponse = await axios.get(`${WP_API_URL}/wp/v2/cities?slug=${encodeURIComponent(city)}&_cb=${Date.now()}`);
-          if (citiesResponse.data && citiesResponse.data.length > 0) {
-            params.cities = citiesResponse.data[0].id;
+        if (citySlugIdMap[city]) {
+          params.cities = citySlugIdMap[city];
+        } else {
+          try {
+            const citiesResponse = await axios.get(`${WP_API_URL}/wp/v2/cities?slug=${encodeURIComponent(city)}&_cb=${Date.now()}`);
+            if (citiesResponse.data && citiesResponse.data.length > 0) {
+              const cityId = citiesResponse.data[0].id;
+              citySlugIdMap[city] = cityId;
+              params.cities = cityId;
+            }
+          } catch (e) {
+            console.warn(`Could not resolve city taxonomy: ${city}`);
           }
-        } catch (e) {
-          console.warn(`Could not resolve city taxonomy: ${city}`);
         }
       }
 
       if (categorySlug && categorySlug !== 'home') {
-        const targetSlug = DB_SLUG_MAP[categorySlug] || categorySlug;
-        const catsResponse = await axios.get(`${WP_API_URL}/wp/v2/categories?slug=${targetSlug}&_cb=${Date.now()}`);
-        
-        if (catsResponse.data && catsResponse.data.length > 0) {
-          params.categories = catsResponse.data[0].id;
+        if (categorySlugIdMap[categorySlug]) {
+          params.categories = categorySlugIdMap[categorySlug];
         } else {
-          const backupResponse = await axios.get(`${WP_API_URL}/wp/v2/categories?slug=${categorySlug}&_cb=${Date.now()}`);
-          if (backupResponse.data && backupResponse.data.length > 0) {
-            params.categories = backupResponse.data[0].id;
+          const targetSlug = DB_SLUG_MAP[categorySlug] || categorySlug;
+          const catsResponse = await axios.get(`${WP_API_URL}/wp/v2/categories?slug=${targetSlug}&_cb=${Date.now()}`);
+          
+          if (catsResponse.data && catsResponse.data.length > 0) {
+            const catId = catsResponse.data[0].id;
+            categorySlugIdMap[categorySlug] = catId;
+            params.categories = catId;
           } else {
-            return { data: [], totalPages: 1 };
+            const backupResponse = await axios.get(`${WP_API_URL}/wp/v2/categories?slug=${categorySlug}&_cb=${Date.now()}`);
+            if (backupResponse.data && backupResponse.data.length > 0) {
+              const catId = backupResponse.data[0].id;
+              categorySlugIdMap[categorySlug] = catId;
+              params.categories = catId;
+            } else {
+              return { data: [], totalPages: 1 };
+            }
           }
         }
       }
@@ -271,7 +388,9 @@ const wpService = {
       if (response.data) {
         const posts = response.data.map(mapWordPressPost);
         const totalPages = parseInt(response.headers['x-wp-totalpages'] || '1', 10);
-        return { data: posts, totalPages };
+        const result = { data: posts, totalPages };
+        swrCache.set(cacheKey, result);
+        return result;
       }
       return { data: [], totalPages: 1 };
     } catch (error) {
@@ -282,57 +401,6 @@ const wpService = {
 
   async getShorts(options = {}) {
     const { perPage = 10 } = options;
-    const politicalEyeShorts = [
-      {
-        id: 'ps1',
-        title: 'क्या BJP 2026 में बंगाल में सरकार बनाएगी? राजनीतिक विश्लेषण',
-        youtube_id: '8v9GqEszZ-E',
-        url: 'https://www.youtube.com/shorts/8v9GqEszZ-E',
-        featured_image: 'https://images.unsplash.com/photo-1541872703-74c5e44368f9?w=500&q=80',
-        views: '240K'
-      },
-      {
-        id: 'ps2',
-        title: 'Rahul Gandhi का नया दांव! कांग्रेस की नई रणनीति का सच',
-        youtube_id: 't-e5K0wQ-tE',
-        url: 'https://www.youtube.com/shorts/t-e5K0wQ-tE',
-        featured_image: 'https://images.unsplash.com/photo-1529107386315-e1a2ed48a620?w=500&q=80',
-        views: '1.2M'
-      },
-      {
-        id: 'ps3',
-        title: 'PM Modi का बड़ा ऐलान: नई सरकारी नीतियां और बजट योजनाएं',
-        youtube_id: 'mU_G2_K7yQY',
-        url: 'https://www.youtube.com/shorts/mU_G2_K7yQY',
-        featured_image: 'https://images.unsplash.com/photo-1593113598332-cd288d649433?w=500&q=80',
-        views: '890K'
-      },
-      {
-        id: 'ps4',
-        title: 'झारखंड चुनाव: कौन बनेगा मुख्यमंत्री? ताजा ओपिनियन पोल',
-        youtube_id: 'xJ8D_9o2L9E',
-        url: 'https://www.youtube.com/shorts/xJ8D_9o2L9E',
-        featured_image: 'https://images.unsplash.com/photo-1450133064473-71024230f91b?w=500&q=80',
-        views: '3.1M'
-      },
-      {
-        id: 'ps5',
-        title: 'बिहार की राजनीति में नया मोड़! क्या नीतीश कुमार बदलेंगे पाला?',
-        youtube_id: 'R7f_o98v6EE',
-        url: 'https://www.youtube.com/shorts/R7f_o98v6EE',
-        featured_image: 'https://images.unsplash.com/photo-1508962914676-134849a727f0?w=500&q=80',
-        views: '1.5M'
-      },
-      {
-        id: 'ps6',
-        title: 'महंगाई और बेरोजगारी पर जनता की राय: तीखे सवाल-जवाब',
-        youtube_id: 'gD_V_d5K7wY',
-        url: 'https://www.youtube.com/shorts/gD_V_d5K7wY',
-        featured_image: 'https://images.unsplash.com/photo-1551836022-d5d88e9218df?w=500&q=80',
-        views: '420K'
-      }
-    ];
-
     try {
       const response = await axios.get(`${WP_API_URL}/wp/v2/shorts`, {
         params: { _embed: true, per_page: perPage, _cb: Date.now() },
@@ -351,12 +419,12 @@ const wpService = {
             views: ((post.id * 83) % 4500) + 240 + 'K'
           };
         });
-        return [...wpShorts, ...politicalEyeShorts];
+        return wpShorts;
       }
     } catch (error) {
-      console.warn('Fallback to curated Political Eye shorts:', error.message);
+      console.warn('Error fetching WordPress shorts:', error.message);
     }
-    return politicalEyeShorts;
+    return [];
   },
 
   /**
@@ -439,6 +507,102 @@ const wpService = {
 
   async fetchMainMenu() {
     return fetchMainMenu();
+  },
+
+  /**
+   * Fetches real YouTube videos and shorts from the YouTube Data API v3
+   */
+  async getYoutubeData() {
+    const CHANNEL_ID = 'UCNS1bVuTNLG2s8uAVHSJTqA';
+    const API_KEY = 'AIzaSyDcZHILOK39GVrN8IOvLSUXNBCZIJUeNlo';
+    const UPLOADS_PLAYLIST_ID = 'UUNS1bVuTNLG2s8uAVHSJTqA';
+    
+    const cachedData = sessionStorage.getItem('political_eye_youtube_data');
+    if (cachedData) {
+      try {
+        return JSON.parse(cachedData);
+      } catch (e) {
+        // Silent fallback
+      }
+    }
+
+    try {
+      // Step 1: Fetch playlist items (uploads) - 1 quota unit
+      const playlistUrl = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=${UPLOADS_PLAYLIST_ID}&maxResults=30&key=${API_KEY}`;
+      const playlistRes = await axios.get(playlistUrl, { timeout: 8000 });
+      
+      if (playlistRes.data && playlistRes.data.items) {
+        const items = playlistRes.data.items;
+        const videoIds = items.map(item => item.snippet.resourceId?.videoId).filter(Boolean);
+        
+        let videoDetailsMap = {};
+        
+        // Step 2: Fetch detailed statistics/durations for all retrieved video IDs in one go - 1 quota unit
+        if (videoIds.length > 0) {
+          try {
+            const detailsUrl = `https://www.googleapis.com/youtube/v3/videos?part=statistics,contentDetails&id=${videoIds.join(',')}&key=${API_KEY}`;
+            const detailsRes = await axios.get(detailsUrl, { timeout: 5000 });
+            if (detailsRes.data && detailsRes.data.items) {
+              detailsRes.data.items.forEach(v => {
+                videoDetailsMap[v.id] = {
+                  viewsCount: v.statistics?.viewCount || '0',
+                  durationRaw: v.contentDetails?.duration || ''
+                };
+              });
+            }
+          } catch (detailsErr) {
+            // Silent fallback
+          }
+        }
+
+        // Step 3: Map items with real views and duration
+        const mappedItems = items.map(item => {
+          const snippet = item.snippet;
+          const videoId = snippet.resourceId?.videoId;
+          const title = snippet.title || '';
+          const description = snippet.description || '';
+          
+          const details = videoDetailsMap[videoId] || {};
+          const viewsCount = details.viewsCount ? formatViews(details.viewsCount) : '150K';
+          const duration = details.durationRaw ? parseISO8601Duration(details.durationRaw) : '10:00';
+          
+          const thumbnail = snippet.thumbnails?.maxres?.url || 
+                            snippet.thumbnails?.high?.url || 
+                            snippet.thumbnails?.medium?.url || 
+                            snippet.thumbnails?.default?.url || 
+                            'https://images.unsplash.com/photo-1541872703-74c5e44368f9?w=800&q=80';
+
+          const isShort = title.toLowerCase().includes('#shorts') || 
+                          title.toLowerCase().includes('#short') ||
+                          description.toLowerCase().includes('#shorts') || 
+                          description.toLowerCase().includes('#short') ||
+                          (details.durationRaw && details.durationRaw.includes('S') && !details.durationRaw.includes('M') && !details.durationRaw.includes('H')); // under 60 seconds
+
+          return {
+            id: videoId,
+            youtube_id: videoId,
+            title: title.replace(/#shorts|#short/gi, '').trim(),
+            thumbnail: thumbnail,
+            featured_image: thumbnail,
+            url: isShort ? `https://www.youtube.com/shorts/${videoId}` : `https://www.youtube.com/watch?v=${videoId}`,
+            views: viewsCount + ' views',
+            duration: duration,
+            isShort: isShort
+          };
+        });
+
+        const shorts = mappedItems.filter(item => item.isShort);
+        const videos = mappedItems.filter(item => !item.isShort);
+
+        const result = { shorts, videos };
+        sessionStorage.setItem('political_eye_youtube_data', JSON.stringify(result));
+        return result;
+      }
+    } catch (error) {
+      // Silent fallback
+    }
+
+    return { shorts: [], videos: [] };
   }
 };
 
@@ -450,13 +614,7 @@ export async function fetchAds() {
     const response = await axios.get(`${WP_API_URL}/wp/v2/ads?_embed=true&_cb=${Date.now()}&per_page=100`, { timeout: 5000 });
     const ads = response.data || [];
     
-    console.log("ADS API RESPONSE:", ads);
-
     const mappedAds = ads.map((ad) => {
-      console.log("AD ACF:", ad.acf);
-      console.log("AD PLACEMENT:", ad.acf?.placement);
-      console.log("AD IMAGE:", ad._embedded?.["wp:featuredmedia"]?.[0]?.source_url);
-
       const featuredImage = ad._embedded?.["wp:featuredmedia"]?.[0]?.source_url || "";
       const targetUrl = ad.acf?.target_url || "#";
       

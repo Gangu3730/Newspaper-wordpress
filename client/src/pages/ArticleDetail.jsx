@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import wpService from '../services/wpService';
+import NewsCard from '../components/news/NewsCard';
+import PostContentRenderer from '../components/common/PostContentRenderer';
 import { Eye } from 'lucide-react';
 import './ArticleDetail.css';
 
@@ -13,6 +15,7 @@ const ArticleDetail = () => {
   // Side Ads State
   const [leftAd, setLeftAd] = useState(null);
   const [rightAd, setRightAd] = useState(null);
+  const [recentNews, setRecentNews] = useState([]);
   
   useEffect(() => {
     setLoading(true);
@@ -45,6 +48,17 @@ const ArticleDetail = () => {
       })
       .catch(err => {
         console.warn("Failed loading ads for details page:", err);
+      });
+
+    // Fetch recent news
+    wpService.getPosts({ perPage: 4 })
+      .then(res => {
+        if (res.data) {
+          setRecentNews(res.data);
+        }
+      })
+      .catch(err => {
+        console.warn("Failed loading recent news:", err);
       });
   }, [slug]);
 
@@ -87,58 +101,75 @@ const ArticleDetail = () => {
         </aside>
       )}
 
-      {/* Main Center Article Card Box */}
-      <article className="article-detail">
-        {/* Category Tag */}
-        {article.category && (
-          <div className="article-detail__category">
-            <Link to={`/category/${article.category.slug}`}>{article.category.name}</Link>
+      {/* Main Center Column Container */}
+      <div className="article-main-container">
+        {/* Main Center Article Card Box */}
+        <article className="article-detail">
+          {/* Category Tag */}
+          {article.category && (
+            <div className="article-detail__category">
+              <Link to={`/category/${article.category.slug}`}>{article.category.name}</Link>
+            </div>
+          )}
+
+          {/* Main Title */}
+          <h1 className="article-detail__title">{article.title}</h1>
+
+          {/* Article Metadata */}
+          <div className="article-detail__meta">
+            <div className="article-detail__author-box">
+              <img 
+                src="https://newspaper.keshav-enterprises.co.in/wp-content/uploads/2026/05/WhatsApp-Image-2026-05-27-at-14.56.54.jpeg" 
+                alt={article.author?.name || 'Author'} 
+                className="article-detail__author-avatar" 
+              />
+              <span className="article-detail__author">{article.author?.name || 'प्रभात खबर ब्यूरो'}</span>
+              <span className="article-detail__sep">|</span>
+              <span className="article-detail__date">{formatDate(article.published_at)}</span>
+            </div>
+            <div className="article-detail__stats">
+              <span 
+                className="article-detail__views"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}
+              >
+                <Eye size={14} />
+                <span>{article.views.toLocaleString()} बार देखा गया</span>
+              </span>
+            </div>
+          </div>
+
+          {/* Main Featured Image */}
+          {article.featured_image && (
+            <div className="article-detail__image-wrapper">
+              <img src={article.featured_image} alt={article.featured_image_alt || article.title} className="article-detail__image" />
+            </div>
+          )}
+
+          {/* Article Summary */}
+          {article.summary && (
+            <div className="article-detail__summary">
+              <p>{article.summary}</p>
+            </div>
+          )}
+
+          {/* Article Full Content */}
+          <div className="article-detail__content">
+            <PostContentRenderer htmlContent={article.content} />
+          </div>
+        </article>
+
+        {/* Recent News Section */}
+        {recentNews.filter(p => p.id !== article.id).slice(0, 3).length > 0 && (
+          <div className="article-detail__recent-section">
+            <h3 className="recent-section__title">ताज़ा ख़बरें (Recent News)</h3>
+            <div className="recent-section__grid">
+              {recentNews.filter(p => p.id !== article.id).slice(0, 3).map(item => (
+                <NewsCard article={item} key={item.id} />
+              ))}
+            </div>
           </div>
         )}
-
-        {/* Main Title */}
-        <h1 className="article-detail__title">{article.title}</h1>
-
-        {/* Article Metadata */}
-        <div className="article-detail__meta">
-          <div className="article-detail__author-box">
-            <span className="article-detail__author">{article.author?.name || 'प्रभात खबर ब्यूरो'}</span>
-            <span className="article-detail__date">{formatDate(article.published_at)}</span>
-          </div>
-          <div className="article-detail__stats">
-            <span 
-              className="article-detail__views"
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}
-            >
-              <Eye size={14} />
-              <span>{article.views.toLocaleString()} बार देखा गया</span>
-            </span>
-          </div>
-        </div>
-
-        {/* Main Featured Image */}
-        {article.featured_image && (
-          <div className="article-detail__image-wrapper">
-            <img src={article.featured_image} alt={article.featured_image_alt || article.title} className="article-detail__image" />
-            {article.featured_image_caption ? (
-              <span className="article-detail__image-caption">{article.featured_image_caption}</span>
-            ) : (
-              <span className="article-detail__image-caption">प्रभात खबर फाइल फोटो</span>
-            )}
-          </div>
-        )}
-
-        {/* Article Summary */}
-        {article.summary && (
-          <div className="article-detail__summary">
-            <p>{article.summary}</p>
-          </div>
-        )}
-
-        {/* Article Full Content */}
-        <div className="article-detail__content" dangerouslySetInnerHTML={{ __html: sanitizeHtml(article.content) }} />
-
-      </article>
+      </div>
 
       {/* Sticky Right Skyscraper Ad Column */}
       {rightAd && (rightAd.image || rightAd.image_url) && (

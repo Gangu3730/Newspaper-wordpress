@@ -260,6 +260,49 @@ const wpService = {
   },
 
   /**
+   * Fetches tags directly from the WordPress REST API ordered by count.
+   */
+  async getTags() {
+    const cacheKey = 'wp_tags';
+    const cached = swrCache.get(cacheKey);
+    if (cached) {
+      setTimeout(() => {
+        this.fetchAndCacheTags(cacheKey).catch(() => {});
+      }, 50);
+      return cached;
+    }
+    return this.fetchAndCacheTags(cacheKey);
+  },
+
+  async fetchAndCacheTags(cacheKey) {
+    try {
+      const response = await axios.get(`${WP_API_URL}/wp/v2/tags?per_page=12&orderby=count&order=desc&_cb=${Date.now()}`, { timeout: 8000 });
+      if (response.data && response.data.length > 0) {
+        let tagsList = response.data.map(t => ({
+          id: t.id,
+          name: t.name,
+          slug: t.slug,
+          count: t.count
+        }));
+        swrCache.set(cacheKey, tagsList);
+        return tagsList;
+      }
+    } catch (e) {
+      console.warn('Could not fetch tags from WP, using fallback');
+    }
+    const defaultTags = [
+      { id: 71, name: 'Viral News', slug: 'viral-news', count: 2 },
+      { id: 78, name: 'Breaking News', slug: 'breaking-news', count: 1 },
+      { id: 87, name: 'Bollywood News', slug: 'bollywood-news', count: 1 },
+      { id: 101, name: 'Karnataka Politics', slug: 'karnataka-politics', count: 1 },
+      { id: 116, name: 'UP Politics', slug: 'up-politics', count: 1 },
+      { id: 77, name: 'Political News', slug: 'political-news', count: 1 }
+    ];
+    swrCache.set(cacheKey, defaultTags);
+    return defaultTags;
+  },
+
+  /**
    * Fetches cities from custom taxonomy from WP REST API.
    */
   async getCities() {
@@ -353,9 +396,25 @@ const wpService = {
               const cityId = citiesResponse.data[0].id;
               citySlugIdMap[city] = cityId;
               params.cities = cityId;
+            } else {
+              // Fallback 1: Try searching for a tag matching the city name
+              const tagsResponse = await axios.get(`${WP_API_URL}/wp/v2/tags?search=${encodeURIComponent(city)}&_cb=${Date.now()}`);
+              if (tagsResponse.data && tagsResponse.data.length > 0) {
+                const exactTag = tagsResponse.data.find(t => t.name === city || t.name.includes(city));
+                if (exactTag) {
+                  params.tags = exactTag.id;
+                } else {
+                  // Fallback 2: Search term query fallback if no exact tag
+                  params.search = city;
+                }
+              } else {
+                // Fallback 2: Search term query fallback
+                params.search = city;
+              }
             }
           } catch (e) {
-            console.warn(`Could not resolve city taxonomy: ${city}`);
+            console.warn(`Could not resolve city taxonomy or tag for: ${city}, using search fallback`);
+            params.search = city;
           }
         }
       }

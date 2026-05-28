@@ -1,6 +1,15 @@
+.article-main-container {
+  flex-grow: 1;
+  width: 100%;
+  max-width: 960px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
 .article-detail {
   padding-top: var(--spacing-8);
-  padding-bottom: var(--spacing-16);
+  padding-bottom: var(--spacing-4);
   max-width: 800px !important; /* Editorial centered reading layout */
   width: 100%;
   overflow-x: clip;
@@ -53,12 +62,27 @@
 
 .article-detail__author-box {
   display: flex;
-  gap: var(--spacing-4);
+  align-items: center;
+  gap: var(--spacing-3);
+}
+
+.article-detail__author-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--accent-primary);
+  box-shadow: var(--shadow-sm);
 }
 
 .article-detail__author {
   font-weight: 700;
   color: var(--text-primary);
+}
+
+.article-detail__sep {
+  color: var(--border-color);
+  font-weight: 300;
 }
 
 .article-detail__image-wrapper {
@@ -72,11 +96,7 @@
 }
 
 .article-detail__image-caption {
-  display: block;
-  font-size: 0.8125rem;
-  color: var(--text-muted);
-  margin-top: 6px;
-  text-align: center;
+  display: none;
 }
 
 .article-detail__summary {
@@ -327,5 +347,48 @@
   .article-page-layout {
     justify-content: center;
     padding: 0 var(--spacing-4);
+  }
+}
+
+/* Recent News Section Styling */
+.article-detail__recent-section {
+  width: 100%;
+  max-width: 960px;
+  margin-top: var(--spacing-10);
+  border-top: 1px solid var(--border-color);
+  padding-top: var(--spacing-8);
+  padding-bottom: var(--spacing-16);
+}
+
+.recent-section__title {
+  font-family: var(--font-serif);
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin-bottom: var(--spacing-6);
+  position: relative;
+  padding-bottom: var(--spacing-2);
+}
+
+.recent-section__title::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 50px;
+  height: 3px;
+  background-color: var(--accent-primary);
+}
+
+.recent-section__grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--spacing-4);
+}
+
+@media (max-width: 768px) {
+  .recent-section__grid {
+    grid-template-columns: 1fr;
+    gap: var(--spacing-6);
   }
 }

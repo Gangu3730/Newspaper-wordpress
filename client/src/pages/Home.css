@@ -425,30 +425,23 @@
   color: var(--text-muted);
 }
 
-/* Editorial Split Column Grid (Desh / Videsh) */
-.editorial-split-grid {
+/* Modern Responsive Tech & Auto Row Grid styles */
+.tech-auto-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--spacing-8);
-  margin-bottom: var(--spacing-10);
-  background-color: var(--bg-secondary);
-  padding: var(--spacing-6);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border-color);
-  box-shadow: var(--shadow-sm);
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--spacing-4);
 }
 
-@media (max-width: 768px) {
-  .editorial-split-grid {
-    grid-template-columns: 1fr;
-    gap: var(--spacing-6);
+@media (max-width: 992px) {
+  .tech-auto-grid {
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 
-.split-column__items {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-4);
+@media (max-width: 600px) {
+  .tech-auto-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* Editorial Row Cards (Now Premium Vertically Stacked Cards) */

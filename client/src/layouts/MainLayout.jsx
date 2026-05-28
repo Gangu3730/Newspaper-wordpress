@@ -471,11 +471,19 @@ const MainLayout = () => {
           <div className="footer-column">
             <h4>मुख्य श्रेणियां</h4>
             <ul className="footer-links-list">
-              {navCategories.slice(0, 6).map(category => (
-                <li key={category.id}>
-                  <Link to={`/category/${category.slug}`}>{category.name}</Link>
-                </li>
-              ))}
+              {menuItems.map(item => {
+                const linkPath = getMenuLink(item);
+                const isExternal = linkPath.startsWith('http');
+                return (
+                  <li key={item.id}>
+                    {isExternal ? (
+                      <a href={linkPath} target="_blank" rel="noopener noreferrer">{item.title}</a>
+                    ) : (
+                      <Link to={linkPath}>{item.title}</Link>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           </div>
 
@@ -527,19 +535,6 @@ const MainLayout = () => {
           </div>
         </div>
 
-        {/* Trending Tag Cloud Footer Block */}
-        <div className="container footer-tags-row">
-          <span className="tags-label">ट्रेंडिंग टॉपिक्स:</span>
-          <div className="tags-cloud">
-            <Link to="/search?q=मौसम" className="tag-pill">#मौसम_अलर्ट</Link>
-            <Link to="/search?q=बिहार" className="tag-pill">#बिहार_योजना</Link>
-            <Link to="/search?q=झारखंड" className="tag-pill">#झारखंड_खेल</Link>
-            <Link to="/search?q=UPSC" className="tag-pill">#यूपीएससी_परीक्षा</Link>
-            <Link to="/search?q=क्रिकेट" className="tag-pill">#क्रिकेट_कप</Link>
-            <Link to="/search?q=सावन" className="tag-pill">#सावन_मेला</Link>
-            <Link to="/search?q=राजगीर" className="tag-pill">#राजगीर_सफारी</Link>
-          </div>
-        </div>
 
         {/* Bottom copyright details */}
         <div className="footer-bottom">

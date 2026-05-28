@@ -11,6 +11,8 @@ import CalculatorsWidget from '../components/widgets/CalculatorsWidget';
 import PollWidget from '../components/widgets/PollWidget';
 import NewsSnapWidget from '../components/widgets/NewsSnapWidget';
 import CityNewsFilter from '../components/widgets/CityNewsFilter';
+import { TwitterTimelineEmbed } from 'react-twitter-embed';
+import EmotionNewsletterWidget from '../components/widgets/EmotionNewsletterWidget';
 import './Home.css';
 
 const politicalEyeShowVideos = [
@@ -359,17 +361,6 @@ const Home = () => {
               );
             })()}
 
-            {/* Trending Links Bar */}
-            <div className="trending-topics-bar">
-              <span className="trending-label">Trends</span>
-              <a href="#oneplus" className="trend-link">Oneplus</a>
-              <a href="#drishyam" className="trend-link">Drishyam 3</a>
-              <a href="#suvendu" className="trend-link">Suvendu Adhikari</a>
-              <a href="#samrat" className="trend-link">Samrat Choudhary</a>
-              <a href="#iran" className="trend-link">Iran War</a>
-              <a href="#ipl" className="trend-link">IPL 2026</a>
-            </div>
-
             {/* Shorts Section - Always show, widget will handle fallback if empty */}
             <ShortsWidget shorts={shortsData} onPlay={setActiveVideoId} />
 
@@ -402,9 +393,6 @@ const Home = () => {
 
               {/* Main Center Column */}
               <main className="home-main-col">
-                <div className="section-header">
-                  <h2 className="section-header__title" style={{ color: '#ea580c', fontSize: '1.8rem' }}>Hindi News <span style={{ color: '#f97316' }}>(हिंदी न्यूज़)</span></h2>
-                </div>
                 
                 <div className="main-editorial">
                   {!heroArticle ? (
@@ -433,54 +421,6 @@ const Home = () => {
                     )}
                   </div>
                 </div>
-
-                {/* Additional Grids */}
-                <div className="editorial-split-grid">
-                  <div className="split-column">
-                    <div className="section-header"><h2 className="section-header__title">टेक</h2></div>
-                    <div className="split-column__items">
-                      {displayTechNews.length === 0 ? (
-                        [1, 2, 3].map(n => (
-                          <div key={n} style={{ height: '70px', backgroundColor: 'rgba(0,0,0,0.05)', borderRadius: '6px', marginBottom: '10px', animation: 'pulse 1.5s infinite' }}></div>
-                        ))
-                      ) : (
-                        displayTechNews.slice(0, 3).map(article => (
-                          <div key={article.id} className="editorial-row-card">
-                            <div className="row-card__img-wrapper">
-                              <img src={article.featured_image} alt="" className="row-card__img-blur" aria-hidden="true" />
-                              <img src={article.featured_image} alt={article.title} className="row-card__img" />
-                            </div>
-                            <div className="row-card__body">
-                              <h4 className="row-card__title"><Link to={`/news/${article.slug}`}>{article.title}</Link></h4>
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                  <div className="split-column">
-                    <div className="section-header"><h2 className="section-header__title">ऑटो</h2></div>
-                    <div className="split-column__items">
-                      {displayAutoNews.length === 0 ? (
-                        [1, 2, 3].map(n => (
-                          <div key={n} style={{ height: '70px', backgroundColor: 'rgba(0,0,0,0.05)', borderRadius: '6px', marginBottom: '10px', animation: 'pulse 1.5s infinite' }}></div>
-                        ))
-                      ) : (
-                        displayAutoNews.slice(0, 3).map(article => (
-                          <div key={article.id} className="editorial-row-card">
-                            <div className="row-card__img-wrapper">
-                              <img src={article.featured_image} alt="" className="row-card__img-blur" aria-hidden="true" />
-                              <img src={article.featured_image} alt={article.title} className="row-card__img" />
-                            </div>
-                            <div className="row-card__body">
-                              <h4 className="row-card__title"><Link to={`/news/${article.slug}`}>{article.title}</Link></h4>
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                </div>
               </main>
 
               {/* Right Sidebar */}
@@ -497,8 +437,64 @@ const Home = () => {
                 ))}
 
                 <PollWidget />
+
+                {/* Official Live Twitter Feed Timeline */}
+                <div className="sidebar-twitter-timeline" style={{ marginTop: '2rem', borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--border-color, #e2e8f0)', background: 'var(--bg-secondary, #ffffff)' }}>
+                  <div style={{ backgroundColor: 'var(--bg-tertiary, #f7f9fa)', padding: '12px 16px', borderBottom: '1px solid var(--border-color, #e2e8f0)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <svg viewBox="0 0 24 24" aria-hidden="true" style={{ width: '18px', height: '18px', fill: 'var(--text-primary, #0f1419)' }}><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"></path></svg>
+                    <h3 style={{ fontSize: '0.95rem', fontWeight: '700', color: 'var(--text-primary, #0f1419)', margin: 0 }}>ट्विटर अपडेट्स (@PoliticalEyeIND)</h3>
+                  </div>
+                  <TwitterTimelineEmbed
+                    sourceType="profile"
+                    screenName="PoliticalEyeIND"
+                    options={{ height: 400 }}
+                    theme="light"
+                    noBorders
+                    noHeader
+                    noFooter
+                  />
+                </div>
+
+                {/* Premium Emotion CSS-in-JS Styled Newsletter Widget */}
+                <EmotionNewsletterWidget />
               </aside>
             </div>
+
+            {/* Tech Section (Split and rendered as a full-width row grid) */}
+            <section className="news-section" style={{ marginBottom: '2rem' }}>
+              <div className="section-header">
+                <h2 className="section-header__title">टेक</h2>
+              </div>
+              <div className="tech-auto-grid">
+                {displayTechNews.length === 0 ? (
+                  [1, 2, 3].map(n => (
+                    <div key={n} style={{ height: '280px', backgroundColor: 'rgba(0,0,0,0.05)', borderRadius: '8px', animation: 'pulse 1.5s infinite' }}></div>
+                  ))
+                ) : (
+                  displayTechNews.slice(0, 3).map(article => (
+                    <NewsCard key={article.id} article={article} variant="standard" />
+                  ))
+                )}
+              </div>
+            </section>
+
+            {/* Auto Section (Split and rendered as a full-width row grid) */}
+            <section className="news-section" style={{ marginBottom: '2rem' }}>
+              <div className="section-header">
+                <h2 className="section-header__title">ऑटो</h2>
+              </div>
+              <div className="tech-auto-grid">
+                {displayAutoNews.length === 0 ? (
+                  [1, 2, 3].map(n => (
+                    <div key={n} style={{ height: '280px', backgroundColor: 'rgba(0,0,0,0.05)', borderRadius: '8px', animation: 'pulse 1.5s infinite' }}></div>
+                  ))
+                ) : (
+                  displayAutoNews.slice(0, 3).map(article => (
+                    <NewsCard key={article.id} article={article} variant="standard" />
+                  ))
+                )}
+              </div>
+            </section>
 
             {/* Political Eye YouTube Video Show Section */}
             <section className="video-section-dark">

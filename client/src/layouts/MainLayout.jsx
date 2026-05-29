@@ -27,7 +27,7 @@ const getMenuLink = (item) => {
   const normalized = normalizeMenuUrl(item.url);
   
   // If it's an external custom link, keep it as external URL
-  if (normalized.startsWith('http') && !normalized.includes('newspaper.keshav-enterprises.co.in')) {
+  if (normalized.startsWith('http') && !normalized.includes('backend.politicaleye.in')) {
     return normalized;
   }
   
@@ -230,7 +230,7 @@ const MainLayout = () => {
           
           <div className="logo-section" onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>
             <img 
-              src="https://newspaper.keshav-enterprises.co.in/wp-content/uploads/2026/05/Untitled-design-4.jpg.jpeg" 
+              src="https://backend.politicaleye.in/wp-content/uploads/2026/05/Untitled-design-4.jpg.jpeg" 
               alt="Logo" 
               className="logo-img" 
               style={{ maxHeight: '90px', width: 'auto' }} 
@@ -443,7 +443,7 @@ const MainLayout = () => {
           <div className="footer-column footer-brand-column">
             <div className="footer-brand-header">
               <img 
-                src="https://newspaper.keshav-enterprises.co.in/wp-content/uploads/2026/05/Untitled-design-4.jpg.jpeg" 
+                src="https://backend.politicaleye.in/wp-content/uploads/2026/05/Untitled-design-4.jpg.jpeg" 
                 alt="Logo" 
                 style={{ maxHeight: '70px', width: 'auto', marginBottom: '15px', display: 'block', borderRadius: '8px' }} 
               />

@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // WordPress Remote Backend API
-const WP_API_URL = import.meta.env.VITE_WP_API_URL || 'https://newspaper.keshav-enterprises.co.in/wp-json';
+const WP_API_URL = import.meta.env.VITE_WP_API_URL || 'https://backend.politicaleye.in/wp-json';
 
 // Dynamic Database Slug Translation Map (Bridges the WordPress encoding slugs to React paths)
 const DB_SLUG_MAP = {

@@ -119,7 +119,7 @@ const ArticleDetail = () => {
           <div className="article-detail__meta">
             <div className="article-detail__author-box">
               <img 
-                src="https://newspaper.keshav-enterprises.co.in/wp-content/uploads/2026/05/WhatsApp-Image-2026-05-27-at-14.56.54.jpeg" 
+                src="https://backend.politicaleye.in/wp-content/uploads/2026/05/WhatsApp-Image-2026-05-27-at-14.56.54.jpeg" 
                 alt={article.author?.name || 'Author'} 
                 className="article-detail__author-avatar" 
               />

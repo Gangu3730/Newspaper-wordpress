@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import wpService from '../services/wpService';
 import NewsCard from '../components/news/NewsCard';
+import SEO from '../components/common/SEO';
 import './Category.css';
 
 const Category = () => {
@@ -9,6 +10,7 @@ const Category = () => {
   const [news, setNews] = useState([]);
   const [latestNews, setLatestNews] = useState([]); // Fallback latest feed if category is empty
   const [categoryName, setCategoryName] = useState('');
+  const [category, setCategory] = useState(null);
   const [loading, setLoading] = useState(true);
   const [fallbackLoading, setFallbackLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -30,6 +32,7 @@ const Category = () => {
     wpService.getCategories()
       .then(list => {
         const cat = list.find(c => c.slug === slug);
+        setCategory(cat || null);
         setCategoryName(cat ? cat.name : slug.toUpperCase());
       })
       .catch(err => console.error("Error fetching category list:", err));
@@ -64,6 +67,11 @@ const Category = () => {
 
   return (
     <div className="category-page container">
+      <SEO 
+        yoastHeadJson={category?.yoast_head_json} 
+        title={categoryName} 
+        description={`प्रभात खबर - ${categoryName} के बारे में ताजातरीन खबरें और मुख्य समाचार`}
+      />
       <div className="category-page__header">
         <h1 className="category-page__title">{categoryName}</h1>
         <div className="category-page__breadcrumb">

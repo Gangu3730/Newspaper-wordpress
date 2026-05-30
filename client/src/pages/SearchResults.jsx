@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useLocation, Link } from 'react-router-dom';
 import wpService from '../services/wpService';
 import NewsCard from '../components/news/NewsCard';
+import SEO from '../components/common/SEO';
 import './SearchResults.css';
 
 const useQuery = () => new URLSearchParams(useLocation().search);
@@ -37,6 +38,11 @@ const SearchResults = () => {
 
   return (
     <div className="search-results container">
+      <SEO 
+        title={`खोज परिणाम: "${q}"`} 
+        description={`Political Eye पर खोज परिणाम: "${q}" - राजनीतिक विश्लेषण, ताजा समाचार और मुख्य सुर्खियां खोजें।`}
+        robots="noindex, follow"
+      />
       <div className="search-header">
         <h1>खोज परिणाम: "{q}"</h1>
         <div className="search-actions">

@@ -129,8 +129,8 @@ const SidebarWeatherWidget = () => {
 
   const fallbackToIP = async () => {
     try {
-      const res = await axios.get('https://ipapi.co/json/');
-      if (res.data && res.data.latitude && res.data.longitude) {
+      const res = await axios.get('https://ipwho.is/');
+      if (res.data && res.data.success && res.data.latitude && res.data.longitude) {
         setSelectedCity({
           name: res.data.city || 'Ghaziabad',
           lat: res.data.latitude,

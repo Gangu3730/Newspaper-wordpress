@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import wpService from '../services/wpService';
 import NewsCard from '../components/news/NewsCard';
 import PostContentRenderer from '../components/common/PostContentRenderer';
+import SEO from '../components/common/SEO';
 import { Eye } from 'lucide-react';
 import './ArticleDetail.css';
 
@@ -91,6 +92,13 @@ const ArticleDetail = () => {
 
   return (
     <div className="article-page-layout">
+      <SEO 
+        yoastHeadJson={article?.yoast_head_json} 
+        title={article?.title} 
+        description={article?.summary} 
+        image={article?.featured_image} 
+        type="article" 
+      />
       {/* Sticky Left Skyscraper Ad Column */}
       {leftAd && (leftAd.image || leftAd.image_url) && (
         <aside className="side-ad side-ad--left">

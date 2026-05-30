@@ -191,7 +191,9 @@ export const mapWordPressPost = (post) => {
     is_breaking: isBreaking,
     is_trending: isTrending,
     is_sticky: post.sticky || false,
-    slug: post.slug
+    slug: post.slug,
+    yoast_head: post.yoast_head || '',
+    yoast_head_json: post.yoast_head_json || null
   };
 };
 
@@ -243,7 +245,9 @@ const wpService = {
           id: cat.id,
           name: CATEGORY_HINDI_MAP[cleanSlug] || cat.name,
           slug: cleanSlug,
-          count: cat.count
+          count: cat.count,
+          yoast_head: cat.yoast_head || '',
+          yoast_head_json: cat.yoast_head_json || null
         };
       });
       
@@ -662,6 +666,21 @@ const wpService = {
     }
 
     return { shorts: [], videos: [] };
+  },
+
+  /**
+   * Fetches Yoast SEO data for a specific URL using the Yoast SEO REST API.
+   */
+  async getSeoByUrl(url) {
+    try {
+      const response = await axios.get(`${WP_API_URL}/yoast/v1/get_head`, {
+        params: { url },
+        timeout: 5000
+      });
+      return response.data;
+    } catch (error) {
+      return null;
+    }
   }
 };
 

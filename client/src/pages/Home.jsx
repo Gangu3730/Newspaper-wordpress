@@ -12,6 +12,7 @@ import PollWidget from '../components/widgets/PollWidget';
 import NewsSnapWidget from '../components/widgets/NewsSnapWidget';
 import CityNewsFilter from '../components/widgets/CityNewsFilter';
 import EmotionNewsletterWidget from '../components/widgets/EmotionNewsletterWidget';
+import SEO from '../components/common/SEO';
 import './Home.css';
 
 const politicalEyeShowVideos = [
@@ -78,6 +79,7 @@ const fallbackPremiumNews = [
 
 const Home = () => {
   const [categories, setCategories] = useState([]);
+  const [seoData, setSeoData] = useState(null);
   const videoScrollContainerRef = useRef(null);
   const [videosScrollable, setVideosScrollable] = useState(false);
 
@@ -133,6 +135,15 @@ const Home = () => {
     wpService.getCategories()
       .then(data => setCategories(data))
       .catch(err => { /* Silent fallback */ });
+
+    // Fetch homepage SEO via Yoast SEO REST API
+    wpService.getSeoByUrl('https://backend.politicaleye.in/')
+      .then(seo => {
+        if (seo && seo.json) {
+          setSeoData(seo.json);
+        }
+      })
+      .catch(() => {});
       
     // Fetch ads
     const cachedAds = sessionStorage.getItem('news_ads');
@@ -320,6 +331,11 @@ const Home = () => {
 
   return (
     <div className="home-page">
+      <SEO 
+        yoastHeadJson={seoData} 
+        title="Political Eye - सच के साथ निडर" 
+        description="Political Eye brings you the latest political analysis, news reports, local insights and international briefings from across India."
+      />
       {breakingNews.length > 0 && <BreakingTicker news={breakingNews} />}
 
       <div className="container home-page__layout">

@@ -11,7 +11,6 @@ import CalculatorsWidget from '../components/widgets/CalculatorsWidget';
 import PollWidget from '../components/widgets/PollWidget';
 import NewsSnapWidget from '../components/widgets/NewsSnapWidget';
 import CityNewsFilter from '../components/widgets/CityNewsFilter';
-import { TwitterTimelineEmbed } from 'react-twitter-embed';
 import EmotionNewsletterWidget from '../components/widgets/EmotionNewsletterWidget';
 import './Home.css';
 
@@ -438,22 +437,6 @@ const Home = () => {
 
                 <PollWidget />
 
-                {/* Official Live Twitter Feed Timeline */}
-                <div className="sidebar-twitter-timeline" style={{ marginTop: '2rem', borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--border-color, #e2e8f0)', background: 'var(--bg-secondary, #ffffff)' }}>
-                  <div style={{ backgroundColor: 'var(--bg-tertiary, #f7f9fa)', padding: '12px 16px', borderBottom: '1px solid var(--border-color, #e2e8f0)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <svg viewBox="0 0 24 24" aria-hidden="true" style={{ width: '18px', height: '18px', fill: 'var(--text-primary, #0f1419)' }}><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"></path></svg>
-                    <h3 style={{ fontSize: '0.95rem', fontWeight: '700', color: 'var(--text-primary, #0f1419)', margin: 0 }}>ट्विटर अपडेट्स (@PoliticalEyeIND)</h3>
-                  </div>
-                  <TwitterTimelineEmbed
-                    sourceType="profile"
-                    screenName="PoliticalEyeIND"
-                    options={{ height: 400 }}
-                    theme="light"
-                    noBorders
-                    noHeader
-                    noFooter
-                  />
-                </div>
 
                 {/* Premium Emotion CSS-in-JS Styled Newsletter Widget */}
                 <EmotionNewsletterWidget />
